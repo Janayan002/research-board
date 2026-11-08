@@ -9,7 +9,7 @@ Made for **visual research**. Pick a frame size, then:
 - **Automatic citations:** every image remembers its page, site, title, author, publish date and the date you saved it. Copy any citation in **Chicago, MLA or APA**, or open **Citations** for a bibliography of the whole page or board.
 - **Pages:** split a board into pages (e.g. "Artists", "Museums", "Materials").
 
-Built with Next.js, React, Zustand and the Claude API with its built-in web search tool. Dark "cyanotype" theme; fonts are Bricolage Grotesque and IBM Plex Sans (bundled, no external requests).
+Built with Next.js, React, Zustand and the Claude API with its built-in web search tool. Minimal black, white and grey theme with the Geist font (bundled, no external requests).
 
 ---
 

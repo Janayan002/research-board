@@ -64,7 +64,7 @@ export default function Editor({ board }: { board: Board }) {
 
   // ----- viewport helpers -----
   // The canvas fills the window; the floating trays cover its edges, so "visible" means the area between them.
-  const LEFT_TRAY = 276, RIGHT_TRAY = 396, DOCK = 80;
+  const LEFT_TRAY = 252, RIGHT_TRAY = 372, DOCK = 80;
   const visible = () => {
     const el = containerRef.current;
     const w = el?.clientWidth ?? 1200, h = el?.clientHeight ?? 800;
@@ -308,7 +308,7 @@ export default function Editor({ board }: { board: Board }) {
 
       <LeftPanel board={board} page={page} selectedId={selectedId} citeStyle={citeStyle} setCiteStyle={setCiteStyle} onFindImages={openPicker} />
 
-      <nav className="dock" aria-label="Tools" style={{ left: `calc(50% ${panelOpen ? "- 60px" : "+ 132px"})` }}>
+      <nav className="dock" aria-label="Tools" style={{ left: `calc(50% ${panelOpen ? "- 60px" : "+ 126px"})` }}>
         <DockTool t="select" tip="Select  V"><IconSelect /></DockTool>
         <DockTool t="hand" tip="Move around  H or Space"><IconHand /></DockTool>
         <div className="sep" />
@@ -356,7 +356,7 @@ export default function Editor({ board }: { board: Board }) {
 
       {toast && <div className="toast" role="status">{toast}</div>}
 
-      <div className="zoom-ctl" style={{ right: panelOpen ? RIGHT_TRAY + 4 : 16 }}>
+      <div className="zoom-ctl" style={{ right: panelOpen ? RIGHT_TRAY + 16 : 16 }}>
         <button className="icon-btn" onClick={() => zoomBy(0.8)} aria-label="Zoom out" title="Zoom out  Ctrl −"><IconMinus size={16} /></button>
         <div className="pct">{Math.round(viewport.zoom * 100)}%</div>
         <button className="icon-btn" onClick={() => zoomBy(1.25)} aria-label="Zoom in" title="Zoom in  Ctrl +"><IconPlus size={16} /></button>

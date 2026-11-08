@@ -40,7 +40,7 @@ export default function Home() {
   return (
     <main className="home">
       <div className="home-header">
-        <h1 className="home-title">Research<br />Board</h1>
+        <h1 className="home-title">Research Board</h1>
         <p className="home-sub">Find artists, places and writing with AI, pull in images with their sources, and lay it all out on a sheet.</p>
       </div>
 
@@ -143,7 +143,7 @@ function BoardThumb({ board }: { board: Board }) {
         <div key={c.id} style={{
           position: "absolute", left: (c.x - minX) * s, top: (c.y - minY) * s, width: c.w * (c.scale ?? 1) * s,
           height: (c.kind === "note" ? 90 : c.kind === "link" ? 70 : 220) * (c.scale ?? 1) * s,
-          background: c.kind === "note" ? c.color : c.kind === "image" ? "#5f7fa8" : "#2c4670", borderRadius: 1,
+          background: c.kind === "note" ? c.color : c.kind === "image" ? "#5a5a5a" : "#333", borderRadius: 1,
         }} />
       ))}
     </div>

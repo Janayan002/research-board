@@ -74,7 +74,7 @@ export function friendlyError(e: unknown): string {
   const status = err?.status;
   if (status === 401) return "Your API key was rejected. Check ANTHROPIC_API_KEY in .env.local.";
   if (status === 429) return "Rate limited by the API — wait a moment and try again.";
-  if (status === 400 && /web search/i.test(err?.message || "")) return "Web search isn't enabled for this API key. Turn it on in the Claude Console (Settings → Privacy).";
+  if (status === 400 && /web search/i.test(err?.message || "")) return "Web search isn't enabled for this API key. Turn it on in the Claude Console at platform.claude.com.";
   if (status === 529 || status === 503) return "The AI service is busy right now. Try again in a minute.";
   return err?.message ? String(err.message).slice(0, 300) : "Something went wrong.";
 }

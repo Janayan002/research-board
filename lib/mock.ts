@@ -12,8 +12,8 @@ const FAKE: Record<string, string[]> = {
   any: ["Result A", "Result B", "Result C", "Result D", "Result E", "Result F"],
 };
 const META: Record<string, string> = {
-  artist: "Berlin · sculpture", museum: "Chicago, USA · museum", article: "A. Writer · Example Review · 2024",
-  exhibition: "Example Kunsthalle · 2023", product: "Example Inc · web, iOS", any: "example",
+  artist: "Berlin, sculpture", museum: "Chicago, USA, museum", article: "A. Writer, Example Review, 2024",
+  exhibition: "Example Kunsthalle, 2023", product: "Example Inc, web and iOS", any: "example",
 };
 
 export function mockCandidates(query: string, rt: ResearchType, count: number, exclude: string[]) {

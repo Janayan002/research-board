@@ -25,7 +25,7 @@ export const RESEARCH_TYPES: ResearchType[] = [
     singular: "artist",
     placeholder: "e.g. sculptural artists who make work about bus stations",
     find: "artists, designers, collectives or studios (real people or groups)",
-    metaHint: "based where · main medium",
+    metaHint: "where they are based, main medium",
     sections: [
       { id: "bio", label: "Short bio", defaultOn: true, instruction: "2–4 sentences: who they are, where they're based, their medium and main concerns." },
       { id: "works", label: "Key works", instruction: "2–4 notable works or projects, each with title, year if known, and one line on what it is." },
@@ -40,7 +40,7 @@ export const RESEARCH_TYPES: ResearchType[] = [
     singular: "museum or gallery",
     placeholder: "e.g. museums and art spaces focused on craft and design in the Midwest",
     find: "museums, galleries, art centers, residencies or other art institutions and spaces",
-    metaHint: "city, country · type of institution",
+    metaHint: "city, country, type of institution",
     sections: [
       { id: "about", label: "About", defaultOn: true, instruction: "2–3 sentences: what kind of institution it is, where, and its mission or character." },
       { id: "collection", label: "Collection & focus", instruction: "What they collect or show: periods, media, notable holdings or programs." },
@@ -56,7 +56,7 @@ export const RESEARCH_TYPES: ResearchType[] = [
     singular: "article or text",
     placeholder: "e.g. essays on waiting, public transit and memory in contemporary art",
     find: "articles, essays, interviews, reviews, academic papers or books (real, findable texts)",
-    metaHint: "author · publication · year",
+    metaHint: "author, publication, year",
     sections: [
       { id: "summary", label: "Summary", defaultOn: true, instruction: "3–4 sentences in your own words summarizing the text. Do not quote long passages." },
       { id: "ideas", label: "Key ideas", instruction: "3–5 short points: the main arguments or ideas." },
@@ -71,7 +71,7 @@ export const RESEARCH_TYPES: ResearchType[] = [
     singular: "exhibition",
     placeholder: "e.g. exhibitions about migration and home, 2020–now",
     find: "exhibitions, biennials, festivals or shows (past, current or upcoming)",
-    metaHint: "venue · dates",
+    metaHint: "venue, dates",
     sections: [
       { id: "overview", label: "Overview", defaultOn: true, instruction: "2–3 sentences: the theme and premise of the show." },
       { id: "artists", label: "Artists & works", instruction: "Notable artists and works included." },
@@ -86,7 +86,7 @@ export const RESEARCH_TYPES: ResearchType[] = [
     singular: "app or product",
     placeholder: "e.g. existing apps for visual research boards with AI search",
     find: "apps, websites, tools, devices or products (real, currently or recently available)",
-    metaHint: "company · platform",
+    metaHint: "company, platforms",
     sections: [
       { id: "what", label: "What it does", defaultOn: true, instruction: "2–3 sentences: what it is and who it's for." },
       { id: "features", label: "Key features", instruction: "3–5 standout features." },

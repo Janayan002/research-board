@@ -80,7 +80,7 @@ export function formatCitation(c: Citation, style: CiteStyle): string {
 export function creditLine(c?: Citation): string {
   if (!c) return "";
   const site = c.siteName || hostOf(c.pageUrl || c.imageUrl);
-  return [c.creator, c.title, site].filter(Boolean).join(" · ");
+  return [c.creator, c.title, site].filter(Boolean).join(", ");
 }
 
 // Every citation on a page: images, links and the sources of research cards

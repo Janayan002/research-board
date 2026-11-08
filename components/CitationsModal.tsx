@@ -3,7 +3,7 @@
 // Every citation on the page (or the whole board), formatted and ready to copy.
 
 import { useEffect, useState } from "react";
-import { IconClose } from "./Icons";
+import { IconClose, IconCopy, IconQuote } from "./Icons";
 import { CITE_STYLES, collectCitations, formatCitation, type CiteStyle } from "@/lib/citation";
 import type { Board, Page } from "@/lib/types";
 
@@ -32,18 +32,18 @@ export default function CitationsModal({ board, page, style, setStyle, onSelect,
     <div className="modal-backdrop" onPointerDown={(e) => { if (e.target === e.currentTarget) onClose(); }}>
       <div className="modal" style={{ maxWidth: 760 }}>
         <div className="modal-head">
-          <div style={{ fontWeight: 600, flex: 1 }}>Citations</div>
-          <button className="icon-btn" onClick={onClose}><IconClose size={14} /></button>
+          <div className="t"><IconQuote size={20} /> Citations</div>
+          <button className="icon-btn" onClick={onClose} aria-label="Close"><IconClose size={16} /></button>
         </div>
         <div className="modal-bar">
           <div className="type-chips">
-            <button className={`chip ${scope === "page" ? "on" : ""}`} onClick={() => setScope("page")}>This page</button>
-            <button className={`chip ${scope === "board" ? "on" : ""}`} onClick={() => setScope("board")}>Whole board</button>
+            <button className={`chip plain ${scope === "page" ? "on" : ""}`} onClick={() => setScope("page")}>This page</button>
+            <button className={`chip plain ${scope === "board" ? "on" : ""}`} onClick={() => setScope("board")}>Whole board</button>
           </div>
           <div style={{ flex: 1 }} />
           <div className="type-chips">
             {CITE_STYLES.map((s) => (
-              <button key={s.id} className={`chip ${style === s.id ? "on" : ""}`} onClick={() => setStyle(s.id)}>{s.label}</button>
+              <button key={s.id} className={`chip plain ${style === s.id ? "on" : ""}`} onClick={() => setStyle(s.id)}>{s.label}</button>
             ))}
           </div>
         </div>
@@ -55,7 +55,7 @@ export default function CitationsModal({ board, page, style, setStyle, onSelect,
               <div className="cite-meta">
                 <span className="muted">{it.label}{scope === "board" ? ` · ${it.pageName}` : ""}</span>
                 <button className="btn small ghost" onClick={() => { onSelect(it.pageId, it.cardId); onClose(); }}>Show</button>
-                <button className="btn small" onClick={() => copy(it.text, String(i))}>{copied === String(i) ? "Copied" : "Copy"}</button>
+                <button className="btn small" onClick={() => copy(it.text, String(i))}><IconCopy size={13} /> {copied === String(i) ? "Copied" : "Copy"}</button>
               </div>
             </div>
           ))}

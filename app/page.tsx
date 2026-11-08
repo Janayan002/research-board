@@ -40,13 +40,11 @@ export default function Home() {
   return (
     <main className="home">
       <div className="home-header">
-        <div>
-          <h1 className="home-title">Research Board</h1>
-          <div className="muted">Search with AI, keep what matters, and lay it out on a canvas.</div>
-        </div>
+        <h1 className="home-title">Research<br />Board</h1>
+        <p className="home-sub">Find artists, places and writing with AI, pull in images with their sources, and lay it all out on a sheet.</p>
       </div>
 
-      <h2>New board — pick a frame size</h2>
+      <h2>Start a board</h2>
       <div className="preset-grid">
         {PRESETS.map((p) => (
           <button
@@ -57,7 +55,7 @@ export default function Home() {
             <div className="preset-thumb"><Thumb w={p.w} h={p.h} /></div>
             <div>
               <div className="preset-name">{p.label}</div>
-              <div className="preset-size">{p.group} · {p.w}×{p.h}</div>
+              <div className="preset-size">{p.w} × {p.h}</div>
             </div>
           </button>
         ))}
@@ -89,7 +87,7 @@ export default function Home() {
 
       <h2>Your boards</h2>
       {!hydrated ? null : list.length === 0 ? (
-        <div className="empty">No boards yet. Pick a size above to start.</div>
+        <div className="empty">No boards yet. Pick a size above and name your first board.</div>
       ) : (
         <div className="board-grid">
           {list.map((b) => (
@@ -103,7 +101,7 @@ export default function Home() {
               </div>
               <button
                 className="btn small del"
-                style={confirmDel === b.id ? { color: "var(--danger)", borderColor: "var(--danger)", opacity: 1 } : undefined}
+                style={confirmDel === b.id ? { color: "var(--coral)", borderColor: "var(--coral)", opacity: 1 } : undefined}
                 onClick={(e) => {
                   e.stopPropagation();
                   if (confirmDel === b.id) deleteBoard(b.id);
@@ -140,12 +138,12 @@ function BoardThumb({ board }: { board: Board }) {
   const s = Math.min(200 / W, 110 / H);
   return (
     <div style={{ position: "relative", width: W * s, height: H * s }}>
-      <div style={{ position: "absolute", left: -minX * s, top: -minY * s, width: frame.w * s, height: frame.h * s, background: "#fff", boxShadow: "0 0 0 1px rgba(0,0,0,.08)" }} />
+      <div style={{ position: "absolute", left: -minX * s, top: -minY * s, width: frame.w * s, height: frame.h * s, background: "var(--sheet)", borderRadius: 2 }} />
       {cards.map((c) => (
         <div key={c.id} style={{
           position: "absolute", left: (c.x - minX) * s, top: (c.y - minY) * s, width: c.w * (c.scale ?? 1) * s,
           height: (c.kind === "note" ? 90 : c.kind === "link" ? 70 : 220) * (c.scale ?? 1) * s,
-          background: c.kind === "note" ? c.color : "#d6d3d1", borderRadius: 2,
+          background: c.kind === "note" ? c.color : c.kind === "image" ? "#5f7fa8" : "#2c4670", borderRadius: 1,
         }} />
       ))}
     </div>

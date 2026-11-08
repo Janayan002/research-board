@@ -3,7 +3,8 @@
 // Left panel: the board's pages (like Figma pages) + controls for the selected item.
 
 import { useState } from "react";
-import { IconTrash, IconExternal, IconImage } from "./Icons";
+import Link from "next/link";
+import { IconBack, IconDuplicate, IconExternal, IconImage, IconLink, IconNote, IconPencil, IconPlus, IconTrash, RESEARCH_ICONS } from "./Icons";
 import CitationEditor from "./CitationEditor";
 import type { CiteStyle } from "@/lib/citation";
 import { NOTE_COLORS } from "@/lib/presets";
@@ -29,6 +30,7 @@ export default function LeftPanel({ board, page, selectedId, citeStyle, setCiteS
   const duplicatePage = useBoards((s) => s.duplicatePage);
   const movePage = useBoards((s) => s.movePage);
   const setCurrentPage = useBoards((s) => s.setCurrentPage);
+  const renameBoard = useBoards((s) => s.renameBoard);
 
   const [renaming, setRenaming] = useState<string | null>(null);
   const [dragFrom, setDragFrom] = useState<number | null>(null);
@@ -38,10 +40,16 @@ export default function LeftPanel({ board, page, selectedId, citeStyle, setCiteS
   const sel = page.cards.find((c) => c.id === selectedId) || null;
 
   return (
-    <aside className="left-panel">
-      <div className="panel-section pages-head">
+    <aside className="tray left-panel">
+      <div className="board-head">
+        <Link href="/" className="icon-btn" title="All boards" aria-label="All boards"><IconBack /></Link>
+        <input className="title-input" value={board.name} aria-label="Board name" onChange={(e) => renameBoard(board.id, e.target.value)} />
+      </div>
+      <div className="muted" style={{ padding: "0 16px 8px", fontSize: 12 }}>{board.frame.w} × {board.frame.h} frame</div>
+
+      <div className="pages-head">
         <div className="label">Pages</div>
-        <button className="icon-btn" style={{ width: 24, height: 24, fontSize: 16 }} title="Add page" onClick={() => addPage(board.id)}>+</button>
+        <button className="icon-btn" style={{ width: 28, height: 28 }} title="Add page" aria-label="Add page" onClick={() => addPage(board.id)}><IconPlus size={16} /></button>
       </div>
 
       <div className="panel-scroll">
@@ -74,11 +82,12 @@ export default function LeftPanel({ board, page, selectedId, citeStyle, setCiteS
                 />
               ) : (
                 <>
+                  <span className="page-dot" />
                   <span className="page-name">{p.name}</span>
                   <span className="page-count">{p.cards.length || ""}</span>
                   <span className="page-actions" onClick={(e) => e.stopPropagation()}>
-                    <button title="Rename" onClick={() => setRenaming(p.id)}>✎</button>
-                    <button title="Duplicate page" onClick={() => duplicatePage(board.id, p.id)}>⧉</button>
+                    <button title="Rename" aria-label="Rename page" onClick={() => setRenaming(p.id)}><IconPencil size={14} /></button>
+                    <button title="Duplicate page" aria-label="Duplicate page" onClick={() => duplicatePage(board.id, p.id)}><IconDuplicate size={14} /></button>
                     {board.pages.length > 1 && (
                       <button
                         title={confirmDel === p.id ? "Click again to delete" : "Delete page"}
@@ -88,7 +97,7 @@ export default function LeftPanel({ board, page, selectedId, citeStyle, setCiteS
                           else { setConfirmDel(p.id); setTimeout(() => setConfirmDel(null), 3000); }
                         }}
                       >
-                        {confirmDel === p.id ? "Delete?" : "✕"}
+                        {confirmDel === p.id ? "Delete?" : <IconTrash size={14} />}
                       </button>
                     )}
                   </span>
@@ -97,14 +106,19 @@ export default function LeftPanel({ board, page, selectedId, citeStyle, setCiteS
             </div>
           );
         })}
-        <div className="muted" style={{ padding: "10px 8px", fontSize: 11, lineHeight: 1.5 }}>
-          Double-click to rename · drag to reorder · <span className="kbd">PgUp</span>/<span className="kbd">PgDn</span> to switch
+        <div className="muted" style={{ padding: "10px 9px", fontSize: 12, lineHeight: 1.5 }}>
+          Double-click a page to rename it, drag to reorder. <span className="kbd">PgUp</span> <span className="kbd">PgDn</span> switch pages.
         </div>
       </div>
 
       {sel && (
-        <div className="panel-section selected-section" style={{ borderTop: "1px solid var(--line)", borderBottom: 0, display: "flex", flexDirection: "column", gap: 10 }}>
-          <div className="label">Selected · {sel.kind === "research" ? "card" : sel.kind}</div>
+        <div className="selected-section">
+          <div className="selected-title">
+            {sel.kind === "note" && <><IconNote size={16} /> Note</>}
+            {sel.kind === "link" && <><IconLink size={16} /> Link</>}
+            {sel.kind === "image" && <><IconImage size={16} /> Image</>}
+            {sel.kind === "research" && (() => { const I = RESEARCH_ICONS[sel.category] ?? RESEARCH_ICONS.any; return <><I size={16} /> {sel.name}</>; })()}
+          </div>
           {sel.kind === "note" && (
             <div className="color-row">
               {NOTE_COLORS.map((col) => (
@@ -156,15 +170,15 @@ export default function LeftPanel({ board, page, selectedId, citeStyle, setCiteS
               <IconImage size={12} /> Find images from its sources
             </button>
           )}
-          <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-            <span className="muted" style={{ fontSize: 11, width: 34 }}>Size</span>
-            <button className="btn small" onClick={() => updateCard(board.id, page.id, sel.id, { scale: Math.max(0.25, (sel.scale ?? 1) / 1.25) })}>−</button>
-            <span style={{ fontFamily: "var(--mono)", fontSize: 11, width: 38, textAlign: "center" }}>{Math.round((sel.scale ?? 1) * 100)}%</span>
-            <button className="btn small" onClick={() => updateCard(board.id, page.id, sel.id, { scale: Math.min(8, (sel.scale ?? 1) * 1.25) })}>+</button>
+          <div className="size-row">
+            <span className="muted" style={{ fontSize: 12, flex: 1 }}>Size</span>
+            <button className="icon-btn" style={{ width: 28, height: 28 }} aria-label="Smaller" onClick={() => updateCard(board.id, page.id, sel.id, { scale: Math.max(0.25, (sel.scale ?? 1) / 1.25) })}>−</button>
+            <span className="val">{Math.round((sel.scale ?? 1) * 100)}%</span>
+            <button className="icon-btn" style={{ width: 28, height: 28 }} aria-label="Larger" onClick={() => updateCard(board.id, page.id, sel.id, { scale: Math.min(8, (sel.scale ?? 1) * 1.25) })}>+</button>
           </div>
           {board.pages.length > 1 && (
             <select
-              className="input"
+              className="input sm"
               value=""
               onChange={(e) => {
                 const to = e.target.value;

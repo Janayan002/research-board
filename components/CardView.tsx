@@ -4,6 +4,9 @@ import { useEffect, useRef, useState } from "react";
 import type { Card, Citation } from "@/lib/types";
 import { creditLine } from "@/lib/citation";
 import { researchType } from "@/lib/researchTypes";
+import { RESEARCH_ICONS } from "./Icons";
+
+const capitalize = (t: string) => t.charAt(0).toUpperCase() + t.slice(1);
 
 type Props = {
   card: Card;
@@ -66,7 +69,7 @@ export default function CardView(p: Props) {
         <>
           {card.image && <HeroImage src={card.image} />}
           <div className="body">
-            <div className="tag">{researchType(card.category).singular}</div>
+            <div className="tag">{(() => { const I = RESEARCH_ICONS[card.category] ?? RESEARCH_ICONS.any; return <I size={14} />; })()} {capitalize(researchType(card.category).singular)}</div>
             <h3>{card.name}</h3>
             {card.subtitle && <div className="sub">{card.subtitle}</div>}
             {card.website && (

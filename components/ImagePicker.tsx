@@ -4,7 +4,7 @@
 // Each picked image keeps a citation (page title, site, author, date, URL, accessed date).
 
 import { useEffect, useState } from "react";
-import { IconClose } from "./Icons";
+import { IconClose, IconImage } from "./Icons";
 import type { Citation } from "@/lib/types";
 
 type PageInfo = { url: string; title?: string; siteName?: string; author?: string; published?: string };
@@ -86,8 +86,8 @@ export default function ImagePicker({ urls, title, creator, onAdd, onClose }: Pr
     <div className="modal-backdrop" onPointerDown={(e) => { if (e.target === e.currentTarget) onClose(); }}>
       <div className="modal">
         <div className="modal-head">
-          <div style={{ fontWeight: 600, flex: 1 }}>{title || "Add images from the web"}</div>
-          <button className="icon-btn" onClick={onClose}><IconClose size={14} /></button>
+          <div className="t"><IconImage size={20} /> {title || "Add images from the web"}</div>
+          <button className="icon-btn" onClick={onClose} aria-label="Close"><IconClose size={16} /></button>
         </div>
 
         <div className="modal-bar">
@@ -142,7 +142,7 @@ export default function ImagePicker({ urls, title, creator, onAdd, onClose }: Pr
           <div className="muted" style={{ fontSize: 11, flex: 1 }}>
             Each image is saved with its source and the date, so you can cite it later. Check usage rights before publishing.
           </div>
-          <button className="btn" onClick={onClose}>Cancel</button>
+          <button className="btn ghost" onClick={onClose}>Cancel</button>
           <button className="btn primary" disabled={picked.size === 0} onClick={add}>Add {picked.size || ""} image{picked.size === 1 ? "" : "s"}</button>
         </div>
       </div>

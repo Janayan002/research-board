@@ -5,6 +5,7 @@
 import { useState } from "react";
 import { CITE_STYLES, formatCitation, type CiteStyle } from "@/lib/citation";
 import type { Citation } from "@/lib/types";
+import { IconCopy } from "./Icons";
 
 type Props = { cite: Citation; onChange: (c: Citation) => void; style: CiteStyle; setStyle: (s: CiteStyle) => void };
 
@@ -36,7 +37,7 @@ export default function CitationEditor({ cite, onChange, style, setStyle }: Prop
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>
-      <div className="label" style={{ marginTop: 4 }}>Source & citation</div>
+      <div className="label" style={{ marginTop: 6 }}>Source and citation</div>
       {missingPage && (
         <div className="mock-banner">Add the page this came from for a complete citation.</div>
       )}
@@ -58,13 +59,13 @@ export default function CitationEditor({ cite, onChange, style, setStyle }: Prop
 
       <div className="type-chips">
         {CITE_STYLES.map((s) => (
-          <button key={s.id} className={`chip ${style === s.id ? "on" : ""}`} style={{ height: 22, fontSize: 11 }} onClick={() => setStyle(s.id)}>{s.label}</button>
+          <button key={s.id} className={`chip plain ${style === s.id ? "on" : ""}`} style={{ height: 24, fontSize: 12 }} onClick={() => setStyle(s.id)}>{s.label}</button>
         ))}
       </div>
       <div className="cite-box">{text}</div>
       <button className="btn small" onClick={async () => {
         try { await navigator.clipboard.writeText(text); setCopied(true); setTimeout(() => setCopied(false), 1500); } catch { /* blocked */ }
-      }}>{copied ? "Copied" : "Copy citation"}</button>
+      }}><IconCopy size={13} /> {copied ? "Copied" : "Copy citation"}</button>
     </div>
   );
 }

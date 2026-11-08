@@ -9,7 +9,7 @@ Made for **visual research**. Pick a frame size, then:
 - **Automatic citations:** every image remembers its page, site, title, author, publish date and the date you saved it. Copy any citation in **Chicago, MLA or APA**, or open **Citations** for a bibliography of the whole page or board.
 - **Pages:** split a board into pages (e.g. "Artists", "Museums", "Materials").
 
-Built with Next.js, React, Zustand and the Claude API with its built-in web search tool.
+Built with Next.js, React, Zustand and the Claude API with its built-in web search tool. Dark "cyanotype" theme; fonts are Bricolage Grotesque and IBM Plex Sans (bundled, no external requests).
 
 ---
 
@@ -26,9 +26,9 @@ Open http://localhost:3000.
 **No key yet?** It still runs in **mock mode**: the research panel returns placeholder results, so you can work on the UI for free.
 
 ### Getting an API key
-1. Go to https://console.anthropic.com and create an API key.
+1. Go to https://platform.claude.com (the Claude Console), sign in or create an account, then **Settings → API keys → Create key**. The key starts with `sk-ant-` and is shown only once.
 2. Add some credit, and **set a monthly spend limit** (Settings → Limits).
-3. If the panel says web search isn't enabled, turn it on in the Console (Settings → Privacy).
+3. If the panel says web search isn't enabled, turn it on in the Console in the Console settings.
 4. Put the key in `.env.local` as `ANTHROPIC_API_KEY=...`. Never commit this file; it's already in `.gitignore`.
 
 **Cost:** each web search is $0.01 plus tokens. With the default cheap model (Haiku 5.5), one research search or one generated card costs roughly 2–4¢. Check the real numbers in the Console's usage page.
@@ -52,7 +52,7 @@ Push to GitHub → import the repo in Vercel → add `ANTHROPIC_API_KEY` under P
 | Cite something | Select an image or link: edit its source info, pick a style, **Copy citation**. **Citations** (top bar) lists everything |
 | Pages | **+** in the left panel. Double-click to rename, drag to reorder, **PgUp/PgDn** to switch. "Move to page…" on a selected item |
 | Delete | Select, then **Delete** / **Backspace** |
-| Research panel | **Ctrl/Cmd + \\** or the button at top right |
+| Research panel | **Ctrl/Cmd + \\** or the sparkle button in the bottom dock |
 | Resize a card | Drag the handle at its bottom-right corner (width), or use **Size −/+** in the left panel |
 
 Boards are saved in your browser (localStorage) for now.

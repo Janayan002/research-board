@@ -15,4 +15,4 @@ export const PRESETS: Preset[] = [
   { id: "ig-story", group: "Social", label: "Story", w: 1080, h: 1920 },
 ];
 
-export const NOTE_COLORS = ["#FFF4B8", "#FFD9CF", "#D8F0DD", "#D7E7FF", "#EADCFF", "#FFFFFF"];
+export const NOTE_COLORS = ["#F6E39B", "#F3C2B3", "#BFE3CB", "#BCD3F0", "#D6C8F2", "#EEF1F5"];

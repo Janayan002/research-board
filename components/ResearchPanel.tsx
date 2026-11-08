@@ -4,7 +4,7 @@
 // Flow: pick a type → prompt → result list → keep / skip → generate a card or pull images → onto the canvas.
 
 import { useState } from "react";
-import { IconClose, IconImage, IconSparkle, IconTrash } from "./Icons";
+import { IconClose, IconImage, IconSearch, IconSparkle, IconTrash, RESEARCH_ICONS } from "./Icons";
 import { hostOf } from "./CardView";
 import { uid, useBoards } from "@/lib/store";
 import { RESEARCH_TYPES, defaultSectionIds, researchType } from "@/lib/researchTypes";
@@ -114,18 +114,22 @@ export default function ResearchPanel({ board, open, onClose, onAddCard, onFindI
     });
 
   return (
-    <aside className={`right-panel ${open ? "" : "collapsed"}`} aria-hidden={!open}>
+    <aside className={`tray right-panel ${open ? "" : "collapsed"}`} aria-hidden={!open}>
       <div className="rp-head">
-        <div className="t"><IconSparkle size={15} /> Research</div>
-        <span className="kbd" title="Toggle panel">Ctrl \</span>
-        <button className="icon-btn" onClick={onClose} title="Collapse panel"><IconClose size={14} /></button>
+        <div className="t"><IconSparkle size={18} /> Research</div>
+        <button className="icon-btn" onClick={onClose} title="Hide panel  Ctrl \" aria-label="Hide research panel"><IconClose size={16} /></button>
       </div>
 
       <div className="rp-form">
         <div className="type-chips">
-          {RESEARCH_TYPES.map((t) => (
-            <button key={t.id} className={`chip ${type === t.id ? "on" : ""}`} onClick={() => setType(t.id)}>{t.label}</button>
-          ))}
+          {RESEARCH_TYPES.map((t) => {
+            const I = RESEARCH_ICONS[t.id] ?? RESEARCH_ICONS.any;
+            return (
+              <button key={t.id} className={`chip ${type === t.id ? "on" : ""}`} onClick={() => setType(t.id)}>
+                <I size={15} /> {t.label}
+              </button>
+            );
+          })}
         </div>
         <textarea
           className="textarea"
@@ -141,7 +145,7 @@ export default function ResearchPanel({ board, open, onClose, onAddCard, onFindI
           </select>
           <div style={{ flex: 1 }} />
           <button className="btn primary" onClick={search} disabled={loading || !query.trim()}>
-            {loading ? <><span className="spinner" /> Searching…</> : "Search"}
+            {loading ? <><span className="spinner" /> Searching…</> : <><IconSearch size={15} /> Search</>}
           </button>
         </div>
         {error && <div className="error-banner">{error}</div>}
@@ -162,11 +166,11 @@ export default function ResearchPanel({ board, open, onClose, onAddCard, onFindI
             <section key={s.id}>
               <div className="session-head">
                 <div style={{ flex: 1 }}>
-                  <div className="tag muted" style={{ fontSize: 10, fontWeight: 600, textTransform: "uppercase", letterSpacing: ".04em" }}>{st.label}</div>
+                  <div className="session-type">{(() => { const I = RESEARCH_ICONS[st.id] ?? RESEARCH_ICONS.any; return <I size={14} />; })()} {st.label}</div>
                   <div className="session-q">{s.query}</div>
                 </div>
-                <button className="icon-btn" style={{ width: 24, height: 24 }} title="Remove this search" onClick={() => removeSession(board.id, s.id)}>
-                  <IconTrash size={12} />
+                <button className="icon-btn" style={{ width: 28, height: 28 }} title="Remove this search" onClick={() => removeSession(board.id, s.id)}>
+                  <IconTrash size={15} />
                 </button>
               </div>
               {s.mock && (
@@ -180,7 +184,7 @@ export default function ResearchPanel({ board, open, onClose, onAddCard, onFindI
                 const sel = picks[c.id] ?? defaultSectionIds(s.type);
                 const imagesBtn = c.sourceUrl && (
                   <button className="btn small" onClick={() => onFindImages([c.sourceUrl!], `Images for ${c.name}`, s.type === "artist" ? c.name : undefined)}>
-                    <IconImage size={12} /> Images
+                    <IconImage size={14} /> Images
                   </button>
                 );
                 return (

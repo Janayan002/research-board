@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import Canvas, { clampZoom, type Tool } from "./Canvas";
 import LeftPanel from "./LeftPanel";
@@ -9,7 +8,7 @@ import ImagePicker, { type PickedImage } from "./ImagePicker";
 import CitationsModal from "./CitationsModal";
 import type { CiteStyle } from "@/lib/citation";
 import { hostOf } from "./CardView";
-import { IconBack, IconHand, IconImage, IconLink, IconNote, IconPanelRight, IconSelect, IconSparkle } from "./Icons";
+import { IconFit, IconHand, IconImage, IconLink, IconMinus, IconNote, IconPlus, IconQuote, IconSelect, IconSparkle } from "./Icons";
 import { currentPage, uid, useBoards } from "@/lib/store";
 import { NOTE_COLORS } from "@/lib/presets";
 import type { Board, Card, Citation, Viewport } from "@/lib/types";
@@ -28,7 +27,6 @@ export default function Editor({ board }: { board: Board }) {
   const addCard = useBoards((s) => s.addCard);
   const updateCard = useBoards((s) => s.updateCard);
   const removeCard = useBoards((s) => s.removeCard);
-  const renameBoard = useBoards((s) => s.renameBoard);
   const saveViewport = useBoards((s) => s.setViewport);
 
   const setCurrentPage = useBoards((s) => s.setCurrentPage);
@@ -65,17 +63,22 @@ export default function Editor({ board }: { board: Board }) {
   const flash = (msg: string) => { setToast(msg); setTimeout(() => setToast(null), 3500); };
 
   // ----- viewport helpers -----
-  const size = () => {
+  // The canvas fills the window; the floating trays cover its edges, so "visible" means the area between them.
+  const LEFT_TRAY = 276, RIGHT_TRAY = 396, DOCK = 80;
+  const visible = () => {
     const el = containerRef.current;
-    return { w: el?.clientWidth ?? 1000, h: el?.clientHeight ?? 700 };
+    const w = el?.clientWidth ?? 1200, h = el?.clientHeight ?? 800;
+    const x0 = w > 900 ? LEFT_TRAY : 0;
+    const x1 = panelOpen && w > 900 ? w - RIGHT_TRAY : w;
+    return { x0, x1, y0: 0, y1: h - DOCK, cx: (x0 + x1) / 2, cy: (h - DOCK) / 2 };
   };
 
   const fitViewport = useCallback((): Viewport => {
-    const { w, h } = size();
-    const pad = 80;
-    const zoom = clampZoom(Math.min((w - pad * 2) / board.frame.w, (h - pad * 2) / board.frame.h));
-    return { zoom, x: (w - board.frame.w * zoom) / 2, y: (h - board.frame.h * zoom) / 2 };
-  }, [board.frame.w, board.frame.h]);
+    const v = visible();
+    const pad = 70;
+    const zoom = clampZoom(Math.min((v.x1 - v.x0 - pad * 2) / board.frame.w, (v.y1 - v.y0 - pad * 2) / board.frame.h));
+    return { zoom, x: v.cx - (board.frame.w * zoom) / 2, y: v.cy - (board.frame.h * zoom) / 2 + 10 };
+  }, [board.frame.w, board.frame.h, panelOpen]); // eslint-disable-line react-hooks/exhaustive-deps
   const fit = useCallback(() => setViewport(fitViewport()), [fitViewport, setViewport]);
 
   // opening the board or switching pages: restore that page's view (or fit the frame the first time)
@@ -93,17 +96,17 @@ export default function Editor({ board }: { board: Board }) {
   }, [view, board.id, saveViewport]);
 
   const zoomBy = (k: number) => {
-    const { w, h } = size();
+    const { cx, cy } = visible();
     setViewport((v) => {
       const z = clampZoom(v.zoom * k);
       const r = z / v.zoom;
-      return { zoom: z, x: w / 2 - (w / 2 - v.x) * r, y: h / 2 - (h / 2 - v.y) * r };
+      return { zoom: z, x: cx - (cx - v.x) * r, y: cy - (cy - v.y) * r };
     });
   };
 
   const centerWorld = () => {
-    const { w, h } = size();
-    return { x: (w / 2 - viewport.x) / viewport.zoom, y: (h / 2 - viewport.y) / viewport.zoom };
+    const { cx, cy } = visible();
+    return { x: (cx - viewport.x) / viewport.zoom, y: (cy - viewport.y) / viewport.zoom };
   };
 
   // ----- adding cards -----
@@ -276,84 +279,91 @@ export default function Editor({ board }: { board: Board }) {
     setPopUrl("");
   };
 
-  const ToolBtn = ({ t, title, children }: { t: Tool; title: string; children: React.ReactNode }) => (
-    <button className={`icon-btn ${tool === t ? "active" : ""}`} title={title} onClick={() => setTool(t)}>{children}</button>
+  const DockTool = ({ t, tip, children }: { t: Tool; tip: string; children: React.ReactNode }) => (
+    <span className="dock-tip" data-tip={tip}>
+      <button className={`icon-btn ${tool === t ? "active" : ""}`} aria-label={tip} onClick={() => setTool(t)}>{children}</button>
+    </span>
   );
+  const togglePopover = (kind: "link" | "image") => { setPopUrl(""); setPopover(popover === kind ? null : kind); };
 
   return (
     <div className="editor">
-      <header className="topbar">
-        <Link href="/" className="icon-btn" title="All boards"><IconBack /></Link>
-        <input className="title-input" value={board.name} onChange={(e) => renameBoard(board.id, e.target.value)} />
+      <div className="canvas-wrap" onDragOver={(e) => e.preventDefault()} onDrop={onDrop}>
+        <Canvas
+          board={board}
+          page={page}
+          viewport={viewport}
+          setViewport={setViewport}
+          tool={tool}
+          setTool={setTool}
+          spaceDown={spaceDown}
+          selectedId={selectedId}
+          setSelectedId={setSelectedId}
+          editingId={editingId}
+          setEditingId={setEditingId}
+          onCreateNote={createNote}
+          containerRef={containerRef}
+        />
+      </div>
+
+      <LeftPanel board={board} page={page} selectedId={selectedId} citeStyle={citeStyle} setCiteStyle={setCiteStyle} onFindImages={openPicker} />
+
+      <nav className="dock" aria-label="Tools" style={{ left: `calc(50% ${panelOpen ? "- 60px" : "+ 132px"})` }}>
+        <DockTool t="select" tip="Select  V"><IconSelect /></DockTool>
+        <DockTool t="hand" tip="Move around  H or Space"><IconHand /></DockTool>
         <div className="sep" />
-        <ToolBtn t="select" title="Select (V)"><IconSelect /></ToolBtn>
-        <ToolBtn t="hand" title="Hand — pan (H, or hold Space)"><IconHand /></ToolBtn>
-        <ToolBtn t="note" title="Note (N) — click the canvas to place"><IconNote /></ToolBtn>
-        <button className={`icon-btn ${popover === "link" ? "active" : ""}`} title="Add link (L)" onClick={() => { setPopUrl(""); setPopover(popover === "link" ? null : "link"); }}><IconLink /></button>
-        <button className={`icon-btn ${popover === "image" ? "active" : ""}`} title="Add images from a web page (I)" onClick={() => { setPopUrl(""); setPopover(popover === "image" ? null : "image"); }}><IconImage /></button>
-        <div className="spacer" />
-        <span className="frame-size">{page.name} · {board.frame.w} × {board.frame.h}</span>
+        <DockTool t="note" tip="Note  N"><IconNote /></DockTool>
+        <span className="dock-tip" data-tip="Link  L">
+          <button className={`icon-btn ${popover === "link" ? "active" : ""}`} aria-label="Add link" onClick={() => togglePopover("link")}><IconLink /></button>
+        </span>
+        <span className="dock-tip" data-tip="Images from the web  I">
+          <button className={`icon-btn ${popover === "image" ? "active" : ""}`} aria-label="Add images" onClick={() => togglePopover("image")}><IconImage /></button>
+        </span>
         <div className="sep" />
-        <button className="btn ghost" onClick={() => setShowCitations(true)} title="All sources on this page, formatted">Citations</button>
-        <button className={`btn ${panelOpen ? "" : "primary"}`} onClick={() => setPanelOpen((o) => !o)} title="Toggle research panel (Ctrl/Cmd + \)">
-          {panelOpen ? <IconPanelRight size={15} /> : <IconSparkle size={15} />} {panelOpen ? "Hide research" : "Research"}
-        </button>
-      </header>
+        <span className="dock-tip" data-tip="Citations for this page">
+          <button className="icon-btn" aria-label="Citations" onClick={() => setShowCitations(true)}><IconQuote /></button>
+        </span>
+        <span className="dock-tip" data-tip={"Research  Ctrl \\"}>
+          <button className={`icon-btn ${panelOpen ? "active" : ""}`} aria-label="Research panel" onClick={() => setPanelOpen((o) => !o)}><IconSparkle /></button>
+        </span>
+      </nav>
 
-      <div className="workspace">
-        <LeftPanel board={board} page={page} selectedId={selectedId} citeStyle={citeStyle} setCiteStyle={setCiteStyle} onFindImages={openPicker} />
-
-        <div className="canvas-wrap" onDragOver={(e) => e.preventDefault()} onDrop={onDrop}>
-          <Canvas
-            board={board}
-            page={page}
-            viewport={viewport}
-            setViewport={setViewport}
-            tool={tool}
-            setTool={setTool}
-            spaceDown={spaceDown}
-            selectedId={selectedId}
-            setSelectedId={setSelectedId}
-            editingId={editingId}
-            setEditingId={setEditingId}
-            onCreateNote={createNote}
-            containerRef={containerRef}
-          />
-
-          {popover && (
-            <div className="popover" style={{ left: popover === "link" ? 12 : 12 }}>
-              <div className="label">{popover === "link" ? "Add a link" : "Add images from the web"}</div>
-              <input
-                autoFocus
-                className="input"
-                placeholder={popover === "link" ? "https://…" : "Page link (pick from its images) or image link"}
-                value={popUrl}
-                onChange={(e) => setPopUrl(e.target.value)}
-                onKeyDown={(e) => { if (e.key === "Enter") submitPopover(); if (e.key === "Escape") setPopover(null); }}
-              />
-              <div className="muted" style={{ fontSize: 11 }}>Tip: you can also paste (Ctrl/Cmd+V) or drag links and images straight onto the canvas.</div>
-              <div className="popover-row">
-                <button className="btn small" onClick={() => setPopover(null)}>Cancel</button>
-                <button className="btn small primary" onClick={submitPopover}>Add</button>
-              </div>
-            </div>
-          )}
-
-          {toast && <div className="popover" style={{ left: "50%", transform: "translateX(-50%)", top: 12, width: "auto" }}>{toast}</div>}
-
-          <div className="hint">
-            Scroll to pan · <span className="kbd">Ctrl</span>+scroll or pinch to zoom · hold <span className="kbd">Space</span> to drag
+      {popover && (
+        <div className="popover">
+          <div className="label" style={{ display: "flex", alignItems: "center", gap: 7, color: "var(--paper)" }}>
+            {popover === "link" ? <IconLink size={16} /> : <IconImage size={16} />}
+            {popover === "link" ? "Add a link" : "Add images from the web"}
           </div>
-          <div className="zoom-ctl">
-            <button className="icon-btn" style={{ width: 26, height: 26 }} onClick={() => zoomBy(0.8)} title="Zoom out (Ctrl -)">−</button>
-            <div className="pct">{Math.round(viewport.zoom * 100)}%</div>
-            <button className="icon-btn" style={{ width: 26, height: 26 }} onClick={() => zoomBy(1.25)} title="Zoom in (Ctrl +)">+</button>
-            <button className="btn small ghost" onClick={fit} title="Fit frame (Shift+1)">Fit</button>
+          <input
+            autoFocus
+            className="input"
+            placeholder={popover === "link" ? "https://…" : "Paste a page link to pick from its images"}
+            value={popUrl}
+            onChange={(e) => setPopUrl(e.target.value)}
+            onKeyDown={(e) => { if (e.key === "Enter") submitPopover(); if (e.key === "Escape") setPopover(null); }}
+          />
+          <div className="muted" style={{ fontSize: 12, lineHeight: 1.45 }}>
+            {popover === "image"
+              ? "A direct image link works too. You can also drag images from other tabs onto the canvas."
+              : "You can also paste a link anywhere on the canvas."}
+          </div>
+          <div className="popover-row">
+            <button className="btn small ghost" onClick={() => setPopover(null)}>Cancel</button>
+            <button className="btn small primary" onClick={submitPopover}>{popover === "link" ? "Add link" : "Find images"}</button>
           </div>
         </div>
+      )}
 
-        <ResearchPanel board={board} open={panelOpen} onClose={() => setPanelOpen(false)} onAddCard={(c) => place(c)} onFindImages={openPicker} />
+      {toast && <div className="toast" role="status">{toast}</div>}
+
+      <div className="zoom-ctl" style={{ right: panelOpen ? RIGHT_TRAY + 4 : 16 }}>
+        <button className="icon-btn" onClick={() => zoomBy(0.8)} aria-label="Zoom out" title="Zoom out  Ctrl −"><IconMinus size={16} /></button>
+        <div className="pct">{Math.round(viewport.zoom * 100)}%</div>
+        <button className="icon-btn" onClick={() => zoomBy(1.25)} aria-label="Zoom in" title="Zoom in  Ctrl +"><IconPlus size={16} /></button>
+        <button className="icon-btn" onClick={fit} aria-label="Fit frame" title="Fit frame  Shift 1"><IconFit size={16} /></button>
       </div>
+
+      <ResearchPanel board={board} open={panelOpen} onClose={() => setPanelOpen(false)} onAddCard={(c) => place(c)} onFindImages={openPicker} />
 
       {picker && <ImagePicker urls={picker.urls} title={picker.title} creator={picker.creator} onAdd={addPicked} onClose={() => setPicker(null)} />}
       {showCitations && (

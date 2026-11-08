@@ -6,12 +6,13 @@
 import { useEffect, useRef, useState } from "react";
 import CardView from "./CardView";
 import { useBoards } from "@/lib/store";
-import type { Board, Viewport } from "@/lib/types";
+import type { Board, Page, Viewport } from "@/lib/types";
 
 export type Tool = "select" | "hand" | "note";
 
 type Props = {
   board: Board;
+  page: Page;
   viewport: Viewport;
   setViewport: (v: Viewport | ((v: Viewport) => Viewport)) => void;
   tool: Tool;
@@ -35,10 +36,10 @@ export const MAX_ZOOM = 4;
 export const clampZoom = (z: number) => Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, z));
 
 export default function Canvas(p: Props) {
-  const { board, viewport: vp, setViewport, tool, spaceDown } = p;
+  const { board, page, viewport: vp, setViewport, tool, spaceDown } = p;
   const updateCard = useBoards((s) => s.updateCard);
   const bringToFront = useBoards((s) => s.bringToFront);
-  const updateText = (id: string, text: string) => updateCard(board.id, id, { text });
+  const updateText = (id: string, text: string) => updateCard(board.id, page.id, id, { text });
 
   const gesture = useRef<Gesture | null>(null);
   const [live, setLive] = useState<{ id: string; x: number; y: number; w: number } | null>(null);
@@ -101,19 +102,19 @@ export default function Canvas(p: Props) {
     e.stopPropagation();
     if (e.button === 2) return;
     if (wantsPan(e)) return startPan(e);
-    const card = board.cards.find((c) => c.id === id);
+    const card = page.cards.find((c) => c.id === id);
     if (!card) return;
     if (p.editingId === id) return; // typing inside the note
     p.setSelectedId(id);
     if (p.editingId) p.setEditingId(null);
     if (tool === "note") p.setTool("select");
-    bringToFront(board.id, id);
+    bringToFront(board.id, page.id, id);
     gesture.current = { type: "drag", id, startX: e.clientX, startY: e.clientY, cx: card.x, cy: card.y, w: card.w, moved: false };
     p.containerRef.current?.setPointerCapture(e.pointerId);
   };
 
   const onResizeDown = (e: React.PointerEvent, id: string) => {
-    const card = board.cards.find((c) => c.id === id);
+    const card = page.cards.find((c) => c.id === id);
     if (!card) return;
     gesture.current = { type: "resize", id, startX: e.clientX, x: card.x, y: card.y, w: card.w };
     p.containerRef.current?.setPointerCapture(e.pointerId);
@@ -130,7 +131,7 @@ export default function Canvas(p: Props) {
       if (Math.abs(dx) + Math.abs(dy) > 1) g.moved = true;
       setLive({ id: g.id, x: Math.round(g.cx + dx), y: Math.round(g.cy + dy), w: g.w });
     } else if (g.type === "resize") {
-      const sc = board.cards.find((c) => c.id === g.id)?.scale ?? 1;
+      const sc = page.cards.find((c) => c.id === g.id)?.scale ?? 1;
       const dw = (e.clientX - g.startX) / vp.zoom / sc;
       setLive({ id: g.id, x: g.x, y: g.y, w: Math.max(140, Math.round(g.w + dw)) });
     }
@@ -141,7 +142,7 @@ export default function Canvas(p: Props) {
     gesture.current = null;
     setPanning(false);
     if (live && g && g.type !== "pan") {
-      updateCard(board.id, live.id, { x: live.x, y: live.y, w: live.w });
+      updateCard(board.id, page.id, live.id, { x: live.x, y: live.y, w: live.w });
     }
     setLive(null);
   };
@@ -162,10 +163,10 @@ export default function Canvas(p: Props) {
       <div className="world" style={{ transform: `translate(${vp.x}px, ${vp.y}px) scale(${vp.zoom})` }}>
         <div className="frame" style={{ width: board.frame.w, height: board.frame.h }}>
           <div className="frame-label" style={{ transform: `scale(${1 / vp.zoom})` }}>
-            {board.name}<span>{board.frame.w} × {board.frame.h}</span>
+            {page.name}<span>{board.frame.w} × {board.frame.h}</span>
           </div>
         </div>
-        {board.cards.map((c) => (
+        {page.cards.map((c) => (
           <CardView
             key={c.id}
             card={c}

@@ -1,13 +1,13 @@
 "use client";
 
 // The collapsible AI research panel on the right.
-// Flow: prompt → candidate list → keep / skip → generate a card → it lands on the canvas.
+// Flow: pick a type → prompt → result list → keep / skip → generate a card or pull images → onto the canvas.
 
 import { useState } from "react";
-import { IconClose, IconSparkle, IconTrash } from "./Icons";
+import { IconClose, IconImage, IconSparkle, IconTrash } from "./Icons";
 import { hostOf } from "./CardView";
 import { uid, useBoards } from "@/lib/store";
-import { SECTIONS } from "@/lib/sections";
+import { RESEARCH_TYPES, defaultSectionIds, researchType } from "@/lib/researchTypes";
 import type { Board, Candidate, Card, GeneratedCard, ResearchSession } from "@/lib/types";
 
 // a card before it has an id/position (Omit that works across each card kind)
@@ -19,9 +19,8 @@ type Props = {
   open: boolean;
   onClose: () => void;
   onAddCard: (card: NewCard) => void;
+  onFindImages: (urls: string[], title: string, creator?: string) => void;
 };
-
-const defaultSections = () => SECTIONS.filter((s) => s.defaultOn).map((s) => s.id);
 
 async function postJson<T>(url: string, body: unknown): Promise<T> {
   const res = await fetch(url, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
@@ -32,12 +31,13 @@ async function postJson<T>(url: string, body: unknown): Promise<T> {
 
 type ResearchResponse = { candidates: Omit<Candidate, "id" | "status">[]; mock?: boolean };
 
-export default function ResearchPanel({ board, open, onClose, onAddCard }: Props) {
+export default function ResearchPanel({ board, open, onClose, onAddCard, onFindImages }: Props) {
   const addSession = useBoards((s) => s.addSession);
   const removeSession = useBoards((s) => s.removeSession);
   const updateCandidate = useBoards((s) => s.updateCandidate);
   const appendCandidates = useBoards((s) => s.appendCandidates);
 
+  const [type, setType] = useState(RESEARCH_TYPES[0].id);
   const [query, setQuery] = useState("");
   const [count, setCount] = useState(6);
   const [loading, setLoading] = useState(false);
@@ -46,6 +46,7 @@ export default function ResearchPanel({ board, open, onClose, onAddCard }: Props
   const [busy, setBusy] = useState<Record<string, boolean>>({}); // candidate id → generating
   const [picks, setPicks] = useState<Record<string, string[]>>({}); // candidate id → section ids
 
+  const rt = researchType(type);
   const toCands = (list: ResearchResponse["candidates"]): Candidate[] =>
     list.map((c) => ({ ...c, id: uid(), status: "new" as const }));
 
@@ -55,8 +56,8 @@ export default function ResearchPanel({ board, open, onClose, onAddCard }: Props
     setLoading(true);
     setError(null);
     try {
-      const r = await postJson<ResearchResponse>("/api/research", { query: q, count });
-      addSession(board.id, { id: uid(), query: q, candidates: toCands(r.candidates), createdAt: Date.now(), mock: r.mock });
+      const r = await postJson<ResearchResponse>("/api/research", { query: q, type, count });
+      addSession(board.id, { id: uid(), query: q, type, candidates: toCands(r.candidates), createdAt: Date.now(), mock: r.mock });
       setQuery("");
     } catch (e: any) {
       setError(e.message);
@@ -69,7 +70,7 @@ export default function ResearchPanel({ board, open, onClose, onAddCard }: Props
     setMoreLoading(s.id);
     setError(null);
     try {
-      const r = await postJson<ResearchResponse>("/api/research", { query: s.query, count, exclude: s.candidates.map((c) => c.name) });
+      const r = await postJson<ResearchResponse>("/api/research", { query: s.query, type: s.type, count, exclude: s.candidates.map((c) => c.name) });
       appendCandidates(board.id, s.id, toCands(r.candidates));
     } catch (e: any) {
       setError(e.message);
@@ -83,9 +84,12 @@ export default function ResearchPanel({ board, open, onClose, onAddCard }: Props
     setError(null);
     try {
       const card = await postJson<GeneratedCard>("/api/card", {
-        name: c.name, query: s.query, sections: picks[c.id] ?? defaultSections(), hintUrl: c.sourceUrl,
+        name: c.name, type: s.type, query: s.query, sections: picks[c.id] ?? defaultSectionIds(s.type), hintUrl: c.sourceUrl,
       });
-      onAddCard({ kind: "artist", w: 340, name: card.name, image: card.image, website: card.website, sections: card.sections, sources: card.sources });
+      onAddCard({
+        kind: "research", category: s.type, w: 340, name: card.name, subtitle: card.subtitle ?? c.meta,
+        image: card.image, website: card.website, sections: card.sections, sources: card.sources,
+      });
       updateCandidate(board.id, s.id, c.id, { status: "added" });
     } catch (e: any) {
       setError(`${c.name}: ${e.message}`);
@@ -98,14 +102,14 @@ export default function ResearchPanel({ board, open, onClose, onAddCard }: Props
     for (const c of s.candidates.filter((c) => c.status === "kept")) await generate(s, c);
   };
 
-  const addAsLink = (s: ResearchSession, c: Candidate) => {
+  const addAsLink = (c: Candidate) => {
     if (!c.sourceUrl) return;
     onAddCard({ kind: "link", w: 280, url: c.sourceUrl, title: `${c.name} — ${c.sourceTitle || hostOf(c.sourceUrl)}` });
   };
 
-  const toggleSection = (candId: string, secId: string) =>
+  const toggleSection = (s: ResearchSession, candId: string, secId: string) =>
     setPicks((p) => {
-      const cur = p[candId] ?? defaultSections();
+      const cur = p[candId] ?? defaultSectionIds(s.type);
       return { ...p, [candId]: cur.includes(secId) ? cur.filter((x) => x !== secId) : [...cur, secId] };
     });
 
@@ -118,9 +122,14 @@ export default function ResearchPanel({ board, open, onClose, onAddCard }: Props
       </div>
 
       <div className="rp-form">
+        <div className="type-chips">
+          {RESEARCH_TYPES.map((t) => (
+            <button key={t.id} className={`chip ${type === t.id ? "on" : ""}`} onClick={() => setType(t.id)}>{t.label}</button>
+          ))}
+        </div>
         <textarea
           className="textarea"
-          placeholder="e.g. sculptural artists who make work about bus stations"
+          placeholder={rt.placeholder}
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           onKeyDown={(e) => { if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) search(); e.stopPropagation(); }}
@@ -141,17 +150,21 @@ export default function ResearchPanel({ board, open, onClose, onAddCard }: Props
       <div className="rp-scroll">
         {board.research.length === 0 && (
           <div className="muted" style={{ lineHeight: 1.55 }}>
-            Ask for artists, designers, projects or apps. You’ll get a list to keep or skip; for the ones you keep,
-            generate a card (bio, key works, process…) and it’s placed on your board with its sources.
+            Pick what you’re looking for (artists, museums, articles, exhibitions, apps…) and describe it. Keep the results you like,
+            then pull their images onto the canvas or generate a card with sources.
           </div>
         )}
 
         {board.research.map((s) => {
           const kept = s.candidates.filter((c) => c.status === "kept").length;
+          const st = researchType(s.type);
           return (
             <section key={s.id}>
               <div className="session-head">
-                <div className="session-q">{s.query}</div>
+                <div style={{ flex: 1 }}>
+                  <div className="tag muted" style={{ fontSize: 10, fontWeight: 600, textTransform: "uppercase", letterSpacing: ".04em" }}>{st.label}</div>
+                  <div className="session-q">{s.query}</div>
+                </div>
                 <button className="icon-btn" style={{ width: 24, height: 24 }} title="Remove this search" onClick={() => removeSession(board.id, s.id)}>
                   <IconTrash size={12} />
                 </button>
@@ -164,11 +177,19 @@ export default function ResearchPanel({ board, open, onClose, onAddCard }: Props
               {s.candidates.length === 0 && <div className="muted">No matches found. Try rewording.</div>}
 
               {s.candidates.map((c) => {
-                const sel = picks[c.id] ?? defaultSections();
+                const sel = picks[c.id] ?? defaultSectionIds(s.type);
+                const imagesBtn = c.sourceUrl && (
+                  <button className="btn small" onClick={() => onFindImages([c.sourceUrl!], `Images for ${c.name}`, s.type === "artist" ? c.name : undefined)}>
+                    <IconImage size={12} /> Images
+                  </button>
+                );
                 return (
                   <div key={c.id} className={`cand ${c.status}`}>
                     <div className="cand-top">
-                      <div className="cand-name">{c.name}</div>
+                      <div style={{ flex: 1 }}>
+                        <div className="cand-name">{c.name}</div>
+                        {c.meta && <div className="cand-meta">{c.meta}</div>}
+                      </div>
                       {c.status === "added" && <span className="pill">On board</span>}
                     </div>
                     <div className="cand-why">{c.why}</div>
@@ -184,13 +205,14 @@ export default function ResearchPanel({ board, open, onClose, onAddCard }: Props
                         {c.status === "new"
                           ? <button className="btn small" onClick={() => updateCandidate(board.id, s.id, c.id, { status: "skipped" })}>Skip</button>
                           : <span className="muted" style={{ alignSelf: "center" }}>Skipped</span>}
+                        {imagesBtn}
                       </div>
                     ) : (
                       <div className="gen-box">
                         <div className="label">Generate card with</div>
-                        {SECTIONS.map((d) => (
+                        {st.sections.map((d) => (
                           <label key={d.id} className="chk">
-                            <input type="checkbox" checked={sel.includes(d.id)} onChange={() => toggleSection(c.id, d.id)} />
+                            <input type="checkbox" checked={sel.includes(d.id)} onChange={() => toggleSection(s, c.id, d.id)} />
                             {d.label}
                           </label>
                         ))}
@@ -198,7 +220,8 @@ export default function ResearchPanel({ board, open, onClose, onAddCard }: Props
                           <button className="btn small primary" disabled={busy[c.id] || sel.length === 0} onClick={() => generate(s, c)}>
                             {busy[c.id] ? <><span className="spinner" /> Writing…</> : c.status === "added" ? "Generate again" : "Generate card"}
                           </button>
-                          {c.sourceUrl && <button className="btn small" onClick={() => addAsLink(s, c)}>Add link only</button>}
+                          {imagesBtn}
+                          {c.sourceUrl && <button className="btn small" onClick={() => addAsLink(c)}>Link only</button>}
                           {c.status === "kept" && (
                             <button className="btn small ghost" onClick={() => updateCandidate(board.id, s.id, c.id, { status: "new" })}>Undo</button>
                           )}

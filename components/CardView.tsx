@@ -1,7 +1,9 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import type { Card } from "@/lib/types";
+import type { Card, Citation } from "@/lib/types";
+import { creditLine } from "@/lib/citation";
+import { researchType } from "@/lib/researchTypes";
 
 type Props = {
   card: Card;
@@ -58,13 +60,15 @@ export default function CardView(p: Props) {
         </>
       )}
 
-      {card.kind === "image" && <ImageBody src={card.src} caption={card.caption} sourceUrl={card.sourceUrl} />}
+      {card.kind === "image" && <ImageBody src={card.src} caption={card.caption} cite={card.cite} sourceUrl={card.sourceUrl} showCredit={card.showCredit !== false} />}
 
-      {card.kind === "artist" && (
+      {card.kind === "research" && (
         <>
           {card.image && <HeroImage src={card.image} />}
           <div className="body">
+            <div className="tag">{researchType(card.category).singular}</div>
             <h3>{card.name}</h3>
+            {card.subtitle && <div className="sub">{card.subtitle}</div>}
             {card.website && (
               <a className="site" href={card.website} target="_blank" rel="noreferrer" onPointerDown={(e) => e.stopPropagation()}>
                 {hostOf(card.website)}
@@ -128,22 +132,22 @@ function NoteEditor({ text, onChange, onDone }: { text: string; onChange: (t: st
   );
 }
 
-function ImageBody({ src, caption, sourceUrl }: { src: string; caption?: string; sourceUrl?: string }) {
+function ImageBody({ src, caption, cite, sourceUrl, showCredit }: { src: string; caption?: string; cite?: Citation; sourceUrl?: string; showCredit: boolean }) {
   const [broken, setBroken] = useState(false);
+  const link = cite?.pageUrl || sourceUrl;
+  const credit = creditLine(cite) || (link ? hostOf(link) : "");
   return (
     <>
       {broken
         ? <div className="broken">Image couldn’t load<br />{src.startsWith("data:") ? "" : src}</div>
         // eslint-disable-next-line @next/next/no-img-element
-        : <img src={src} alt={caption || ""} onError={() => setBroken(true)} draggable={false} referrerPolicy="no-referrer" />}
-      {(caption || sourceUrl) && (
-        <div className="cap">
-          {caption}
-          {sourceUrl && (
-            <> {caption ? "· " : ""}
-              <a href={sourceUrl} target="_blank" rel="noreferrer" onPointerDown={(e) => e.stopPropagation()}>{hostOf(sourceUrl)}</a>
-            </>
-          )}
+        : <img src={src} alt={caption || cite?.title || ""} onError={() => setBroken(true)} draggable={false} referrerPolicy="no-referrer" />}
+      {caption && <div className="cap">{caption}</div>}
+      {showCredit && credit && (
+        <div className="credit">
+          {link
+            ? <a href={link} target="_blank" rel="noreferrer" onPointerDown={(e) => e.stopPropagation()}>{credit}</a>
+            : credit}
         </div>
       )}
     </>

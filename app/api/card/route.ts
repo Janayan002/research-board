@@ -1,44 +1,52 @@
-// POST /api/card  { name, query?, sections: string[], hintUrl? }
-// → GeneratedCard { name, website, image, sections: [{label, text}], sources: [{title, url}] }
+// POST /api/card  { name, type?, query?, sections: string[], hintUrl? }
+// → GeneratedCard { name, subtitle, website, image, sections: [{label, text}], sources: [{title, url}] }
 
 import { NextResponse } from "next/server";
 import { extractJson, friendlyError, hasApiKey, maxSearches, runWithSearch } from "@/lib/ai";
 import { mockCard } from "@/lib/mock";
-import { sectionById, SECTIONS } from "@/lib/sections";
+import { researchType, type SectionDef } from "@/lib/researchTypes";
 import { firstImage } from "@/lib/web";
 import type { GeneratedCard } from "@/lib/types";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
 
-type Out = { name?: string; website?: string | null; sections?: { label: string; text: string }[]; sources?: { title: string; url: string }[] };
+type Out = {
+  name?: string;
+  subtitle?: string;
+  website?: string | null;
+  sections?: { label: string; text: string }[];
+  sources?: { title: string; url: string }[];
+};
 
 export async function POST(req: Request) {
   const body = await req.json().catch(() => ({}));
   const name = String(body.name || "").trim().slice(0, 200);
+  const rt = researchType(body.type);
   const query = String(body.query || "").trim().slice(0, 1000);
   const hintUrl = body.hintUrl ? String(body.hintUrl) : undefined;
-  const ids: string[] = Array.isArray(body.sections) && body.sections.length ? body.sections : ["bio"];
-  const defs = ids.map(sectionById).filter(Boolean) as typeof SECTIONS;
+  const ids: string[] = Array.isArray(body.sections) && body.sections.length ? body.sections : [rt.sections[0].id];
+  const defs = ids.map((id) => rt.sections.find((s) => s.id === id)).filter(Boolean) as SectionDef[];
   if (!name) return NextResponse.json({ error: "Missing name." }, { status: 400 });
 
   if (!hasApiKey()) {
     await new Promise((r) => setTimeout(r, 900));
-    return NextResponse.json(mockCard(name, defs.map((d) => d.label)));
+    return NextResponse.json(mockCard(name, rt, defs.map((d) => d.label)));
   }
 
   const system = `You write concise, factual research cards for a visual artist's research board.
-Use web search to verify every fact. Never invent works, dates, or URLs. If something is uncertain, say so briefly.
-Write in plain, clear language. Reply with ONLY a JSON object, no prose:
-{"name":"...","website":"official site URL or null","sections":[{"label":"...","text":"..."}],"sources":[{"title":"...","url":"https://..."}]}
+This card is about a ${rt.singular}. Use web search to verify every fact. Never invent works, dates, quotes or URLs.
+If something is uncertain, say so briefly. Write in plain, clear language and in your own words.
+Reply with ONLY a JSON object, no prose:
+{"name":"...","subtitle":"${rt.metaHint}","website":"official page URL or null","sections":[{"label":"...","text":"..."}],"sources":[{"title":"...","url":"https://..."}]}
 Include exactly these sections, in this order, using these labels:
 ${defs.map((d) => `- "${d.label}": ${d.instruction}`).join("\n")}
-"sources" = the 2–5 pages you actually used.`;
+"sources" = the 2–5 pages you actually used. Prefer pages that show images of the work/place/product.`;
 
   const prompt =
     `Make a research card about: ${name}` +
     (query ? `\nThe user's research prompt (for context and the "Connection" section): """${query}"""` : "") +
-    (hintUrl ? `\nA page that mentions them: ${hintUrl}` : "");
+    (hintUrl ? `\nA page about it: ${hintUrl}` : "");
 
   try {
     const r = await runWithSearch({
@@ -54,11 +62,12 @@ ${defs.map((d) => `- "${d.label}": ${d.instruction}`).join("\n")}
       .map((s) => ({ title: String(s.title || s.url).slice(0, 200), url: String(s.url) }));
     const website = parsed.website && /^https?:\/\//.test(parsed.website) ? parsed.website : undefined;
 
-    // Preview image: the official site first, then the source pages.
+    // Preview image: the official page first, then the source pages.
     const image = await firstImage([website, hintUrl, ...sources.map((s) => s.url)]);
 
     const out: GeneratedCard = {
       name: parsed.name || name,
+      subtitle: parsed.subtitle ? String(parsed.subtitle).slice(0, 160) : undefined,
       website,
       image,
       sections: (parsed.sections || []).map((s) => ({ label: String(s.label), text: String(s.text) })),

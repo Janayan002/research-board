@@ -2,7 +2,12 @@
 
 A Figma-style canvas for visual research, with an AI research assistant on the right.
 
-Pick a frame size, then type something like *"sculptural artists who make work about bus stations"*. You get a list of real candidates with sources. **Keep** or **skip** each one, then **generate a card** (short bio, key works, materials & process, connection to your research, exhibitions). The card lands on your board with its image and source links. You can also add your own notes, links and images.
+Made for **visual research**. Pick a frame size, then:
+
+- **Research with AI:** choose what you're looking for (artists, museums & galleries, articles & writing, exhibitions, apps & products, or anything) and describe it, e.g. *"sculptural artists who make work about bus stations"*. Keep or skip the results, then **pull their images** onto the canvas or **generate a card** (sections depend on the type) with source links.
+- **Pull images from any web page:** paste a page link, pick images from a grid, done.
+- **Automatic citations:** every image remembers its page, site, title, author, publish date and the date you saved it. Copy any citation in **Chicago, MLA or APA**, or open **Citations** for a bibliography of the whole page or board.
+- **Pages:** split a board into pages (e.g. "Artists", "Museums", "Materials").
 
 Built with Next.js, React, Zustand and the Claude API with its built-in web search tool.
 
@@ -40,8 +45,12 @@ Push to GitHub → import the repo in Vercel → add `ANTHROPIC_API_KEY` under P
 | Pan | Scroll, hold **Space** and drag, or use the Hand tool (**H**) |
 | Zoom | **Ctrl/Cmd + scroll**, pinch, or **Ctrl/Cmd +/−**. **Shift+1** fits the frame |
 | Add a note | **N**, then click the canvas. Double-click a note (or press Enter) to edit |
-| Add a link / image | **L** / **I**, or paste (**Ctrl/Cmd+V**) or drag links and images onto the canvas |
-| Paste a screenshot | Ctrl/Cmd+V (images up to 1.5 MB, stored in your browser) |
+| Add a link | **L**, or paste / drag a link onto the canvas |
+| Add images from a web page | **I**, paste the page link, pick images. Or click **Images** on a research result, or **Find images** on a card |
+| Drag an image from another site | Drop it on the canvas: it's cited automatically (page details are filled in when the browser passes the page link) |
+| Paste a screenshot | Ctrl/Cmd+V (up to 1.5 MB, stored in your browser). Add its page URL in the left panel to cite it |
+| Cite something | Select an image or link: edit its source info, pick a style, **Copy citation**. **Citations** (top bar) lists everything |
+| Pages | **+** in the left panel. Double-click to rename, drag to reorder, **PgUp/PgDn** to switch. "Move to page…" on a selected item |
 | Delete | Select, then **Delete** / **Backspace** |
 | Research panel | **Ctrl/Cmd + \\** or the button at top right |
 | Resize a card | Drag the handle at its bottom-right corner (width), or use **Size −/+** in the left panel |
@@ -58,17 +67,22 @@ app/
   board/[id]/page.tsx      Loads a board into the editor
   api/research/route.ts    Prompt → candidate list (Claude + web search)
   api/card/route.ts        Candidate → card sections + sources + preview image
-  api/unfurl/route.ts      Free link previews (page title / og:image)
+  api/unfurl/route.ts      Free link previews + citation info (title, site, author, date)
+  api/images/route.ts      Lists the images on a web page (for the image picker)
 components/
   Editor.tsx               Top bar, tools, shortcuts, paste/drop, layout
   Canvas.tsx               Pan / zoom / drag / resize (the Figma-like part)
   CardView.tsx             How each card type looks
-  LeftPanel.tsx            Layers list + selected-item controls
-  ResearchPanel.tsx        The collapsible AI panel
+  LeftPanel.tsx            Pages + selected-item controls
+  ResearchPanel.tsx        The collapsible AI panel (research types)
+  ImagePicker.tsx          Pick images from web pages
+  CitationEditor.tsx       Source info + formatted citation for one item
+  CitationsModal.tsx       Bibliography for the page / board
 lib/
   store.ts                 All board data (Zustand, saved to localStorage)
   ai.ts                    Claude calls + parsing JSON from the reply
-  sections.ts              Card section types. Add your own here
+  researchTypes.ts         Research types and their card sections. Add your own here
+  citation.ts              Chicago / MLA / APA formatting
   presets.ts               Frame sizes and note colors
   web.ts                   Fetching pages safely for previews
   mock.ts                  Fake data for mock mode
@@ -88,10 +102,12 @@ lib/
 - [ ] Multi-select and group move
 - [ ] Undo / redo
 - [ ] Arrows / connectors between cards
-- [ ] Export the frame as PNG / PDF
+- [ ] Export the frame as PNG / PDF, with an image-credits page
+- [ ] Save images to storage (so they don't break if the original site moves them)
 - [ ] Edit generated card text
 
 **Research**
-- [ ] Image search for a candidate (e.g. Brave Search API or museum open-access APIs)
+- [ ] Browser extension: clip an image from any site with one click (most reliable citations)
+- [ ] Image search for a query (e.g. Brave Search API, museum open-access APIs)
 - [ ] "Research this card further": ask follow-up questions about a card
 - [ ] Search modes: artists / apps & products / exhibitions / writing

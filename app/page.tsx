@@ -98,7 +98,7 @@ export default function Home() {
               <div className="board-tile-meta">
                 <div className="board-tile-name">{b.name}</div>
                 <div className="muted" style={{ fontSize: 11 }}>
-                  {b.cards.length} item{b.cards.length === 1 ? "" : "s"} · {b.frame.w}×{b.frame.h} · edited {timeAgo(b.updatedAt)}
+                  {b.pages.length} page{b.pages.length === 1 ? "" : "s"} · {b.pages.reduce((n, p) => n + p.cards.length, 0)} items · edited {timeAgo(b.updatedAt)}
                 </div>
               </div>
               <button
@@ -128,7 +128,8 @@ function Thumb({ w, h }: { w: number; h: number }) {
 
 // tiny preview of a board: frame + card rectangles
 function BoardThumb({ board }: { board: Board }) {
-  const { frame, cards } = board;
+  const { frame } = board;
+  const cards = board.pages[0]?.cards ?? [];
   let minX = 0, minY = 0, maxX = frame.w, maxY = frame.h;
   for (const c of cards) {
     const sc = c.scale ?? 1;

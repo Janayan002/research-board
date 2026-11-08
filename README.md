@@ -8,6 +8,7 @@ Made for **visual research**. Pick a frame size, then:
 - **AI research:** choose what you're looking for (artists, museums & galleries, articles & writing, exhibitions, apps & products, or anything) and describe it, e.g. *"sculptural artists who make work about bus stations"*. Keep or skip the results, then **pull their images** onto the canvas or **generate a card** (sections depend on the type) with source links.
 - **Pull images from any web page:** paste a page link, pick images from a grid, done.
 - **Automatic citations:** every image remembers its page, site, title, author, publish date and the date you saved it. Copy any citation in **Chicago, MLA or APA**, or open **Citations** for a bibliography of the whole page or board.
+- **Preview pages next to your board:** click any search result or link to open it in a side pane. Sites that allow it show live; others show a clean **reader view** where clicking an image adds it to your board with its citation. **Open** sends it to your browser (or Cmd/Ctrl-click any link).
 - **Pages:** split a board into pages (e.g. "Artists", "Museums", "Materials").
 
 Built with Next.js, React, Zustand and the Claude API with its built-in web search tool. Minimal black, white and grey theme with the Geist font (bundled, no external requests).
@@ -73,6 +74,7 @@ app/
   api/unfurl/route.ts      Free link previews + citation info (title, site, author, date)
   api/images/route.ts      Lists the images on a web page (for the image picker)
   api/search/route.ts      Web / image search (Brave, or Claude fallback)
+  api/reader/route.ts      Reader view of a page + whether it can be shown live
 components/
   Editor.tsx               Top bar, tools, shortcuts, paste/drop, layout
   Canvas.tsx               Pan / zoom / drag / resize (the Figma-like part)
@@ -81,6 +83,7 @@ components/
   SearchPanel.tsx          Right panel: Web / Images / AI research tabs
   ResearchPanel.tsx        The AI research tab (research types, keep/skip, cards)
   ImagePicker.tsx          Pick images from web pages
+  PreviewPane.tsx          Web page preview next to the board (live / reader)
   CitationEditor.tsx       Source info + formatted citation for one item
   CitationsModal.tsx       Bibliography for the page / board
 lib/
@@ -89,6 +92,8 @@ lib/
   researchTypes.ts         Research types and their card sections. Add your own here
   citation.ts              Chicago / MLA / APA formatting
   search.ts                Search engine adapters (Brave, Claude fallback, mock)
+  reader.ts                Reader view: cleans a page down to text + images
+  preview.ts               Which page is open in the preview pane
   presets.ts               Frame sizes and note colors
   web.ts                   Fetching pages safely for previews
   mock.ts                  Fake data for mock mode

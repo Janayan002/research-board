@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { Card, Citation } from "@/lib/types";
 import { creditLine } from "@/lib/citation";
+import { previewClick } from "@/lib/preview";
 import { researchType } from "@/lib/researchTypes";
 import { RESEARCH_ICONS } from "./Icons";
 
@@ -59,7 +60,7 @@ export default function CardView(p: Props) {
             {hostOf(card.url)}
           </div>
           <div className="t">{card.title || hostOf(card.url)}</div>
-          <a href={card.url} target="_blank" rel="noreferrer" onPointerDown={(e) => e.stopPropagation()}>{card.url}</a>
+          <a href={card.url} target="_blank" rel="noreferrer" onPointerDown={(e) => e.stopPropagation()} onClick={(e) => previewClick(e, card.url)}>{card.url}</a>
         </>
       )}
 
@@ -73,7 +74,7 @@ export default function CardView(p: Props) {
             <h3>{card.name}</h3>
             {card.subtitle && <div className="sub">{card.subtitle}</div>}
             {card.website && (
-              <a className="site" href={card.website} target="_blank" rel="noreferrer" onPointerDown={(e) => e.stopPropagation()}>
+              <a className="site" href={card.website} target="_blank" rel="noreferrer" onPointerDown={(e) => e.stopPropagation()} onClick={(e) => previewClick(e, card.website)}>
                 {hostOf(card.website)}
               </a>
             )}
@@ -87,7 +88,7 @@ export default function CardView(p: Props) {
               <div className="srcs">
                 <div className="label">Sources</div>
                 {card.sources.map((s, i) => (
-                  <a key={i} href={s.url} target="_blank" rel="noreferrer" title={s.url} onPointerDown={(e) => e.stopPropagation()}>
+                  <a key={i} href={s.url} target="_blank" rel="noreferrer" title={s.url} onPointerDown={(e) => e.stopPropagation()} onClick={(e) => previewClick(e, s.url)}>
                     {s.title || hostOf(s.url)}
                   </a>
                 ))}
@@ -151,7 +152,7 @@ function ImageBody({ src, fallback, caption, cite, sourceUrl, showCredit }: { sr
       {showCredit && credit && (
         <div className="credit">
           {link
-            ? <a href={link} target="_blank" rel="noreferrer" onPointerDown={(e) => e.stopPropagation()}>{credit}</a>
+            ? <a href={link} target="_blank" rel="noreferrer" onPointerDown={(e) => e.stopPropagation()} onClick={(e) => previewClick(e, link)}>{credit}</a>
             : credit}
         </div>
       )}

@@ -7,6 +7,7 @@ import { IconClose, IconImage, IconLink, IconPlus, IconSearch, IconSparkle } fro
 import ResearchPanel, { type NewCard } from "./ResearchPanel";
 import type { PickedImage } from "./ImagePicker";
 import type { Board, GeneratedCard } from "@/lib/types";
+import { previewClick } from "@/lib/preview";
 
 type WebResult = { title: string; url: string; snippet?: string; site?: string; favicon?: string; thumb?: string; age?: string };
 type ImageResult = { src: string; thumb?: string; title?: string; pageUrl?: string; site?: string };
@@ -173,7 +174,7 @@ export default function SearchPanel({ board, open, onClose, onAddCard, onAddLink
                           <div className="wr-path">{path(r.url)}</div>
                         </div>
                       </div>
-                      <a className="wr-title" href={r.url} target="_blank" rel="noreferrer">{r.title}</a>
+                      <a className="wr-title" href={r.url} target="_blank" rel="noreferrer" onClick={(e) => previewClick(e, r.url)} title="Click to preview, Cmd/Ctrl-click to open in browser">{r.title}</a>
                       {r.snippet && <p className="wr-snippet">{r.age ? <span className="muted">{r.age}. </span> : null}{r.snippet}</p>}
                       <div className="wr-actions">
                         <button className="btn small" disabled={added.has(r.url)} onClick={() => { onAddLink(r.url); setAdded((s) => new Set(s).add(r.url)); }}>

@@ -5,6 +5,8 @@ import Canvas, { clampZoom, type Tool } from "./Canvas";
 import LeftPanel from "./LeftPanel";
 import { type NewCard } from "./ResearchPanel";
 import SearchPanel from "./SearchPanel";
+import PreviewPane from "./PreviewPane";
+import { usePreview } from "@/lib/preview";
 import ImagePicker, { type PickedImage } from "./ImagePicker";
 import CitationsModal from "./CitationsModal";
 import type { CiteStyle } from "@/lib/citation";
@@ -52,6 +54,15 @@ export default function Editor({ board }: { board: Board }) {
   const [picker, setPicker] = useState<null | { urls: string[]; title: string; creator?: string }>(null);
   const [showCitations, setShowCitations] = useState(false);
   const [citeStyle, setCiteStyleState] = useState<CiteStyle>("chicago");
+  const previewUrl = usePreview((s) => s.url);
+  const [previewW, setPreviewWState] = useState(560);
+  const [vw, setVw] = useState(1440);
+  useEffect(() => {
+    const r = () => setVw(window.innerWidth);
+    r();
+    window.addEventListener("resize", r);
+    return () => window.removeEventListener("resize", r);
+  }, []);
   const pendingSelect = useRef<string | null>(null);
   const cascade = useRef(0);
 
@@ -60,17 +71,23 @@ export default function Editor({ board }: { board: Board }) {
     try { const v = localStorage.getItem("cite-style"); if (v === "mla" || v === "apa" || v === "chicago") setCiteStyleState(v); } catch {}
   }, []);
   const setCiteStyle = (s: CiteStyle) => { setCiteStyleState(s); try { localStorage.setItem("cite-style", s); } catch {} };
+  useEffect(() => { try { const w = Number(localStorage.getItem("preview-width")); if (w >= 360) setPreviewWState(w); } catch {} }, []);
+  const setPreviewW = (w: number) => { setPreviewWState(w); try { localStorage.setItem("preview-width", String(w)); } catch {} };
 
   const flash = (msg: string) => { setToast(msg); setTimeout(() => setToast(null), 3500); };
 
   // ----- viewport helpers -----
   // The canvas fills the window; the floating trays cover its edges, so "visible" means the area between them.
   const LEFT_TRAY = 252, RIGHT_TRAY = 372, DOCK = 80;
+  const panelSpace = panelOpen ? RIGHT_TRAY : 0;
+  const canvasW = vw - LEFT_TRAY - (panelOpen ? RIGHT_TRAY : 0) - (previewUrl ? previewW : 0);
+  const tight = canvasW < 640; // narrow canvas: stand the dock up vertically and hide zoom buttons
+  const rightSpace = panelSpace + (previewUrl ? previewW : 0); // search panel + web preview
   const visible = () => {
     const el = containerRef.current;
     const w = el?.clientWidth ?? 1200, h = el?.clientHeight ?? 800;
     const x0 = w > 900 ? LEFT_TRAY : 0;
-    const x1 = panelOpen && w > 900 ? w - RIGHT_TRAY : w;
+    const x1 = w > 900 ? w - rightSpace : w;
     return { x0, x1, y0: 0, y1: h - DOCK, cx: (x0 + x1) / 2, cy: (h - DOCK) / 2 };
   };
 
@@ -79,7 +96,7 @@ export default function Editor({ board }: { board: Board }) {
     const pad = 70;
     const zoom = clampZoom(Math.min((v.x1 - v.x0 - pad * 2) / board.frame.w, (v.y1 - v.y0 - pad * 2) / board.frame.h));
     return { zoom, x: v.cx - (board.frame.w * zoom) / 2, y: v.cy - (board.frame.h * zoom) / 2 + 10 };
-  }, [board.frame.w, board.frame.h, panelOpen]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [board.frame.w, board.frame.h, rightSpace]); // eslint-disable-line react-hooks/exhaustive-deps
   const fit = useCallback(() => setViewport(fitViewport()), [fitViewport, setViewport]);
 
   // opening the board or switching pages: restore that page's view (or fit the frame the first time)
@@ -309,7 +326,7 @@ export default function Editor({ board }: { board: Board }) {
 
       <LeftPanel board={board} page={page} selectedId={selectedId} citeStyle={citeStyle} setCiteStyle={setCiteStyle} onFindImages={openPicker} />
 
-      <nav className="dock" aria-label="Tools" style={{ left: `calc(50% ${panelOpen ? "- 60px" : "+ 126px"})` }}>
+      <nav className={`dock ${tight ? "vertical" : ""}`} aria-label="Tools" style={tight ? { left: LEFT_TRAY + 12 } : { left: `calc(50% + ${(LEFT_TRAY - rightSpace) / 2}px)` }}>
         <DockTool t="select" tip="Select  V"><IconSelect /></DockTool>
         <DockTool t="hand" tip="Move around  H or Space"><IconHand /></DockTool>
         <div className="sep" />
@@ -355,9 +372,9 @@ export default function Editor({ board }: { board: Board }) {
         </div>
       )}
 
-      {toast && <div className="toast" role="status">{toast}</div>}
+      {toast && <div className="toast" role="status" style={{ left: `calc(50% + ${(LEFT_TRAY - rightSpace) / 2}px)` }}>{toast}</div>}
 
-      <div className="zoom-ctl" style={{ right: panelOpen ? RIGHT_TRAY + 16 : 16 }}>
+      <div className="zoom-ctl" style={{ right: rightSpace + 16, display: tight ? "none" : undefined }}>
         <button className="icon-btn" onClick={() => zoomBy(0.8)} aria-label="Zoom out" title="Zoom out  Ctrl −"><IconMinus size={16} /></button>
         <div className="pct">{Math.round(viewport.zoom * 100)}%</div>
         <button className="icon-btn" onClick={() => zoomBy(1.25)} aria-label="Zoom in" title="Zoom in  Ctrl +"><IconPlus size={16} /></button>
@@ -369,6 +386,15 @@ export default function Editor({ board }: { board: Board }) {
         open={panelOpen}
         onClose={() => setPanelOpen(false)}
         onAddCard={(c) => place(c)}
+        onAddLink={(url) => addLink(url)}
+        onAddImages={addPicked}
+        onFindImages={openPicker}
+      />
+
+      <PreviewPane
+        width={previewW}
+        setWidth={setPreviewW}
+        right={panelSpace}
         onAddLink={(url) => addLink(url)}
         onAddImages={addPicked}
         onFindImages={openPicker}

@@ -11,6 +11,8 @@
   "dependencies": {
     "@anthropic-ai/sdk": "^1.6.0",
     "@fontsource-variable/geist": "^5.3.0",
+    "@mozilla/readability": "^0.6.0",
+    "linkedom": "^0.18.15",
     "next": "^16.4.5",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",

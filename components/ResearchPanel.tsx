@@ -9,6 +9,7 @@ import { hostOf } from "./CardView";
 import { uid, useBoards } from "@/lib/store";
 import { RESEARCH_TYPES, defaultSectionIds, researchType } from "@/lib/researchTypes";
 import type { Board, Candidate, Card, GeneratedCard, ResearchSession } from "@/lib/types";
+import { previewClick } from "@/lib/preview";
 
 // a card before it has an id/position (Omit that works across each card kind)
 type DistributiveOmit<T, K extends keyof any> = T extends any ? Omit<T, K> : never;
@@ -200,7 +201,7 @@ export default function ResearchPanel({ board, onAddCard, onFindImages }: Props)
                     </div>
                     <div className="cand-why">{c.why}</div>
                     {c.sourceUrl && (
-                      <a className="cand-src" href={c.sourceUrl} target="_blank" rel="noreferrer" title={c.sourceUrl}>
+                      <a className="cand-src" href={c.sourceUrl} target="_blank" rel="noreferrer" title={c.sourceUrl} onClick={(e) => previewClick(e, c.sourceUrl)}>
                         {c.sourceTitle || hostOf(c.sourceUrl)}
                       </a>
                     )}

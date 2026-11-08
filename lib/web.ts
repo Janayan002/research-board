@@ -66,7 +66,7 @@ function fromJsonLd(html: string): { author?: string; published?: string; name?:
   return out;
 }
 
-async function fetchHtml(url: string, maxBytes: number, stopAtHead: boolean, timeoutMs: number) {
+export async function fetchHtml(url: string, maxBytes: number, stopAtHead: boolean, timeoutMs: number) {
   const ctrl = new AbortController();
   const t = setTimeout(() => ctrl.abort(), timeoutMs);
   try {
@@ -76,8 +76,9 @@ async function fetchHtml(url: string, maxBytes: number, stopAtHead: boolean, tim
       headers: { "user-agent": "Mozilla/5.0 (compatible; ResearchBoard/0.1; +research canvas)", accept: "text/html,image/*" },
     });
     const type = res.headers.get("content-type") || "";
-    if (type.startsWith("image/")) return { finalUrl: res.url || url, html: "", isImage: true };
-    if (!type.includes("html")) return { finalUrl: res.url || url, html: "", isImage: false };
+    const headers = res.headers;
+    if (type.startsWith("image/")) return { finalUrl: res.url || url, html: "", isImage: true, headers };
+    if (!type.includes("html")) return { finalUrl: res.url || url, html: "", isImage: false, headers };
     const reader = res.body?.getReader();
     let html = "";
     if (reader) {
@@ -90,7 +91,7 @@ async function fetchHtml(url: string, maxBytes: number, stopAtHead: boolean, tim
       }
       reader.cancel().catch(() => {});
     }
-    return { finalUrl: res.url || url, html, isImage: false };
+    return { finalUrl: res.url || url, html, isImage: false, headers };
   } finally {
     clearTimeout(t);
   }
@@ -99,7 +100,7 @@ async function fetchHtml(url: string, maxBytes: number, stopAtHead: boolean, tim
 // "2024-05-12T10:00:00Z" → "2024-05-12" (keeps other formats as they are)
 const cleanDate = (d?: string) => (d && /^\d{4}-\d{2}-\d{2}T/.test(d) ? d.slice(0, 10) : d);
 
-function pageInfoFrom(html: string, base: string): PageInfo {
+export function pageInfoFrom(html: string, base: string): PageInfo {
   const ld = fromJsonLd(html);
   let image = meta(html, ["og:image", "og:image:url", "twitter:image", "twitter:image:src"]);
   if (image) { try { image = new URL(image, base).toString(); } catch { image = undefined; } }
@@ -153,8 +154,11 @@ export async function pageImages(url: string): Promise<{ page: PageInfo; images:
   const r = await fetchHtml(url, 2_500_000, false, 8000);
   if (r.isImage) return { page: { url }, images: [{ src: url }] };
   const page = pageInfoFrom(r.html, r.finalUrl);
-  const base = r.finalUrl;
+  return { page, images: extractImages(r.html, r.finalUrl, page) };
+}
 
+// Pull image URLs out of raw HTML (handles lazy-loading and srcset), skipping icons/logos.
+export function extractImages(html: string, base: string, page?: PageInfo): FoundImage[] {
   const seen = new Set<string>();
   const images: FoundImage[] = [];
   const add = (raw: string | undefined, alt?: string, w?: number, h?: number) => {
@@ -171,16 +175,18 @@ export async function pageImages(url: string): Promise<{ page: PageInfo; images:
     images.push({ src, alt: alt ? decode(alt).slice(0, 200) : undefined, width: w, height: h });
   };
 
-  if (page.image) add(page.image, page.title);
-  for (const m of r.html.matchAll(/<img\b[^>]*>/gi)) {
+  if (page?.image) add(page.image, page.title);
+  for (const m of html.matchAll(/<img\b[^>]*>/gi)) {
     const tag = m[0];
     const src = bestFromSrcset(attr(tag, "srcset") || attr(tag, "data-srcset")) || attr(tag, "data-src") || attr(tag, "data-original") || attr(tag, "data-lazy-src") || attr(tag, "src");
     add(src, attr(tag, "alt"), Number(attr(tag, "width")) || undefined, Number(attr(tag, "height")) || undefined);
     if (images.length >= 60) break;
   }
-  for (const m of r.html.matchAll(/<source\b[^>]*srcset=["']([^"']+)["'][^>]*>/gi)) {
+  for (const m of html.matchAll(/<source\b[^>]*srcset=["']([^"']+)["'][^>]*>/gi)) {
     add(bestFromSrcset(m[1]));
     if (images.length >= 60) break;
   }
-  return { page, images };
+  return images;
 }
+
+export { bestFromSrcset };

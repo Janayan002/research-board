@@ -3,12 +3,13 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import Canvas, { clampZoom, type Tool } from "./Canvas";
 import LeftPanel from "./LeftPanel";
-import ResearchPanel, { type NewCard } from "./ResearchPanel";
+import { type NewCard } from "./ResearchPanel";
+import SearchPanel from "./SearchPanel";
 import ImagePicker, { type PickedImage } from "./ImagePicker";
 import CitationsModal from "./CitationsModal";
 import type { CiteStyle } from "@/lib/citation";
 import { hostOf } from "./CardView";
-import { IconFit, IconHand, IconImage, IconLink, IconMinus, IconNote, IconPlus, IconQuote, IconSelect, IconSparkle } from "./Icons";
+import { IconFit, IconHand, IconImage, IconLink, IconMinus, IconNote, IconPlus, IconQuote, IconSearch, IconSelect } from "./Icons";
 import { currentPage, uid, useBoards } from "@/lib/store";
 import { NOTE_COLORS } from "@/lib/presets";
 import type { Board, Card, Citation, Viewport } from "@/lib/types";
@@ -184,7 +185,7 @@ export default function Editor({ board }: { board: Board }) {
     const x0 = c.x - (cols * cellW) / 2;
     const y0 = c.y - (Math.ceil(imgs.length / cols) * cellH) / 2;
     imgs.forEach((img, i) => {
-      place({ kind: "image", w: 320, src: img.src, sourceUrl: img.cite.pageUrl, cite: img.cite },
+      place({ kind: "image", w: 320, src: img.src, fallbackSrc: img.fallback, sourceUrl: img.cite.pageUrl, cite: img.cite },
         { x: x0 + (i % cols) * cellW, y: y0 + Math.floor(i / cols) * cellH });
     });
     flash(`Added ${imgs.length} image${imgs.length === 1 ? "" : "s"} with citations.`);
@@ -323,8 +324,8 @@ export default function Editor({ board }: { board: Board }) {
         <span className="dock-tip" data-tip="Citations for this page">
           <button className="icon-btn" aria-label="Citations" onClick={() => setShowCitations(true)}><IconQuote /></button>
         </span>
-        <span className="dock-tip" data-tip={"Research  Ctrl \\"}>
-          <button className={`icon-btn ${panelOpen ? "active" : ""}`} aria-label="Research panel" onClick={() => setPanelOpen((o) => !o)}><IconSparkle /></button>
+        <span className="dock-tip" data-tip={"Search  Ctrl \\"}>
+          <button className={`icon-btn ${panelOpen ? "active" : ""}`} aria-label="Search panel" onClick={() => setPanelOpen((o) => !o)}><IconSearch /></button>
         </span>
       </nav>
 
@@ -363,7 +364,15 @@ export default function Editor({ board }: { board: Board }) {
         <button className="icon-btn" onClick={fit} aria-label="Fit frame" title="Fit frame  Shift 1"><IconFit size={16} /></button>
       </div>
 
-      <ResearchPanel board={board} open={panelOpen} onClose={() => setPanelOpen(false)} onAddCard={(c) => place(c)} onFindImages={openPicker} />
+      <SearchPanel
+        board={board}
+        open={panelOpen}
+        onClose={() => setPanelOpen(false)}
+        onAddCard={(c) => place(c)}
+        onAddLink={(url) => addLink(url)}
+        onAddImages={addPicked}
+        onFindImages={openPicker}
+      />
 
       {picker && <ImagePicker urls={picker.urls} title={picker.title} creator={picker.creator} onAdd={addPicked} onClose={() => setPicker(null)} />}
       {showCitations && (

@@ -63,7 +63,7 @@ export default function CardView(p: Props) {
         </>
       )}
 
-      {card.kind === "image" && <ImageBody src={card.src} caption={card.caption} cite={card.cite} sourceUrl={card.sourceUrl} showCredit={card.showCredit !== false} />}
+      {card.kind === "image" && <ImageBody src={card.src} fallback={card.fallbackSrc} caption={card.caption} cite={card.cite} sourceUrl={card.sourceUrl} showCredit={card.showCredit !== false} />}
 
       {card.kind === "research" && (
         <>
@@ -135,8 +135,9 @@ function NoteEditor({ text, onChange, onDone }: { text: string; onChange: (t: st
   );
 }
 
-function ImageBody({ src, caption, cite, sourceUrl, showCredit }: { src: string; caption?: string; cite?: Citation; sourceUrl?: string; showCredit: boolean }) {
+function ImageBody({ src, fallback, caption, cite, sourceUrl, showCredit }: { src: string; fallback?: string; caption?: string; cite?: Citation; sourceUrl?: string; showCredit: boolean }) {
   const [broken, setBroken] = useState(false);
+  const [useFallback, setUseFallback] = useState(false);
   const link = cite?.pageUrl || sourceUrl;
   const credit = creditLine(cite) || (link ? hostOf(link) : "");
   return (
@@ -144,7 +145,8 @@ function ImageBody({ src, caption, cite, sourceUrl, showCredit }: { src: string;
       {broken
         ? <div className="broken">Image couldn’t load<br />{src.startsWith("data:") ? "" : src}</div>
         // eslint-disable-next-line @next/next/no-img-element
-        : <img src={src} alt={caption || cite?.title || ""} onError={() => setBroken(true)} draggable={false} referrerPolicy="no-referrer" />}
+        : <img src={useFallback && fallback ? fallback : src} alt={caption || cite?.title || ""} draggable={false} referrerPolicy="no-referrer"
+            onError={() => (fallback && !useFallback ? setUseFallback(true) : setBroken(true))} />}
       {caption && <div className="cap">{caption}</div>}
       {showCredit && credit && (
         <div className="credit">

@@ -11,7 +11,7 @@ type PageInfo = { url: string; title?: string; siteName?: string; author?: strin
 type Found = { src: string; alt?: string };
 type PageResult = { url: string; status: "loading" | "done" | "error"; page?: PageInfo; images: Found[]; error?: string };
 
-export type PickedImage = { src: string; cite: Citation };
+export type PickedImage = { src: string; cite: Citation; fallback?: string };
 
 type Props = {
   urls: string[];

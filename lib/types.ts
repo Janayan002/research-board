@@ -29,6 +29,7 @@ export type LinkCard = BaseCard & { kind: "link"; url: string; title: string; ci
 export type ImageCard = BaseCard & {
   kind: "image";
   src: string;
+  fallbackSrc?: string; // smaller copy to show if the original won't load
   caption?: string;
   sourceUrl?: string; // page or file it came from
   cite?: Citation;
@@ -55,7 +56,8 @@ export type Candidate = {
   id: string;
   name: string;
   why: string; // one line: why this matches the prompt
-  meta?: string; // short line like "author · publication · year" or "city · type"
+  meta?: string; // short line like "author, publication, year" or "city, type"
+  match?: "exact" | "related"; // exact = the thing you named; related = similar / matches your description
   sourceUrl?: string;
   sourceTitle?: string;
   status: CandidateStatus;

@@ -9,7 +9,7 @@ import { researchType } from "@/lib/researchTypes";
 export const runtime = "nodejs";
 export const maxDuration = 60;
 
-type Out = { candidates: { name: string; why: string; meta?: string; sourceUrl?: string; sourceTitle?: string }[] };
+type Out = { candidates: { name: string; why: string; meta?: string; match?: string; sourceUrl?: string; sourceTitle?: string }[] };
 
 export async function POST(req: Request) {
   const body = await req.json().catch(() => ({}));
@@ -26,12 +26,16 @@ export async function POST(req: Request) {
 
   const system = `You are a research assistant for a visual artist, designer and creative technologist.
 Their research is visual, so prefer results that have images online (artwork, installation views, spaces, products).
-Find ${rt.find} matching the user's request.
+Find ${rt.find} for the user's request.
+
+First decide what kind of request it is:
+- If it NAMES a specific ${rt.singular} (e.g. a person's name, a title, an institution), the FIRST result must be exactly that one, with "match":"exact" and a "why" that briefly says who/what it is. Then add a few closely related ${rt.label.toLowerCase()} with "match":"related", each "why" saying how it relates to the named one.
+- If it DESCRIBES what they want (a theme, material, place, idea), return matching results, all with "match":"related".
 Use web search to find REAL results with evidence. Never invent names, titles, works, or URLs.
 Prefer primary sources: the artist's/organization's own site, museum or gallery pages, the original publication, reputable arts press.
 
 Reply with ONLY a JSON object, no prose, in exactly this shape:
-{"candidates":[{"name":"...","meta":"${rt.metaHint}","why":"one specific sentence on how it matches","sourceUrl":"https://...","sourceTitle":"..."}]}
+{"candidates":[{"name":"...","match":"exact or related","meta":"${rt.metaHint}","why":"one specific sentence","sourceUrl":"https://...","sourceTitle":"..."}]}
 - "name" is the name or title of the ${rt.singular}.
 - sourceUrl must be a page that appeared in your search results and supports the "why" (ideally a page with images).
 - If you find fewer good matches than requested, return fewer. Quality over quantity.`;
@@ -53,10 +57,12 @@ Reply with ONLY a JSON object, no prose, in exactly this shape:
       .map((c) => ({
         name: String(c.name).slice(0, 200),
         meta: c.meta ? String(c.meta).slice(0, 160) : undefined,
+        match: c.match === "exact" ? ("exact" as const) : ("related" as const),
         why: String(c.why || "").slice(0, 400),
         sourceUrl: c.sourceUrl ? String(c.sourceUrl) : undefined,
         sourceTitle: c.sourceTitle ? String(c.sourceTitle).slice(0, 200) : undefined,
       }));
+    candidates.sort((a, b) => (a.match === "exact" ? -1 : 0) - (b.match === "exact" ? -1 : 0));
     return NextResponse.json({ candidates, searchesUsed: r.searchesUsed });
   } catch (e) {
     console.error("[research]", e);

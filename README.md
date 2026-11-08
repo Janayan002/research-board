@@ -4,7 +4,8 @@ A Figma-style canvas for visual research, with an AI research assistant on the r
 
 Made for **visual research**. Pick a frame size, then:
 
-- **Research with AI:** choose what you're looking for (artists, museums & galleries, articles & writing, exhibitions, apps & products, or anything) and describe it, e.g. *"sculptural artists who make work about bus stations"*. Keep or skip the results, then **pull their images** onto the canvas or **generate a card** (sections depend on the type) with source links.
+- **Search like Google:** type anything in the right panel and press Enter. **Web** shows normal results (add any page to your board, pull its images, or summarize it into a card). **Images** shows an image grid: click to select, then add them with their sources.
+- **AI research:** choose what you're looking for (artists, museums & galleries, articles & writing, exhibitions, apps & products, or anything) and describe it, e.g. *"sculptural artists who make work about bus stations"*. Keep or skip the results, then **pull their images** onto the canvas or **generate a card** (sections depend on the type) with source links.
 - **Pull images from any web page:** paste a page link, pick images from a grid, done.
 - **Automatic citations:** every image remembers its page, site, title, author, publish date and the date you saved it. Copy any citation in **Chicago, MLA or APA**, or open **Citations** for a bibliography of the whole page or board.
 - **Pages:** split a board into pages (e.g. "Artists", "Museums", "Materials").
@@ -22,6 +23,8 @@ npm run dev
 ```
 
 Open http://localhost:3000.
+
+**Optional: Brave Search key** for fast, Google-like Web and Images results. Get one at https://api-dashboard.search.brave.com (it includes free monthly credit) and add `BRAVE_API_KEY=...` to `.env.local`. Without it, Web/Images use Claude's web search instead (slower; images are collected from the top result pages).
 
 **No key yet?** It still runs in **mock mode**: the research panel returns placeholder results, so you can work on the UI for free.
 
@@ -52,7 +55,7 @@ Push to GitHub → import the repo in Vercel → add `ANTHROPIC_API_KEY` under P
 | Cite something | Select an image or link: edit its source info, pick a style, **Copy citation**. **Citations** (top bar) lists everything |
 | Pages | **+** in the left panel. Double-click to rename, drag to reorder, **PgUp/PgDn** to switch. "Move to page…" on a selected item |
 | Delete | Select, then **Delete** / **Backspace** |
-| Research panel | **Ctrl/Cmd + \\** or the sparkle button in the bottom dock |
+| Search panel | **Ctrl/Cmd + \\** or the search button in the bottom dock |
 | Resize a card | Drag the handle at its bottom-right corner (width), or use **Size −/+** in the left panel |
 
 Boards are saved in your browser (localStorage) for now.
@@ -69,12 +72,14 @@ app/
   api/card/route.ts        Candidate → card sections + sources + preview image
   api/unfurl/route.ts      Free link previews + citation info (title, site, author, date)
   api/images/route.ts      Lists the images on a web page (for the image picker)
+  api/search/route.ts      Web / image search (Brave, or Claude fallback)
 components/
   Editor.tsx               Top bar, tools, shortcuts, paste/drop, layout
   Canvas.tsx               Pan / zoom / drag / resize (the Figma-like part)
   CardView.tsx             How each card type looks
   LeftPanel.tsx            Pages + selected-item controls
-  ResearchPanel.tsx        The collapsible AI panel (research types)
+  SearchPanel.tsx          Right panel: Web / Images / AI research tabs
+  ResearchPanel.tsx        The AI research tab (research types, keep/skip, cards)
   ImagePicker.tsx          Pick images from web pages
   CitationEditor.tsx       Source info + formatted citation for one item
   CitationsModal.tsx       Bibliography for the page / board
@@ -83,6 +88,7 @@ lib/
   ai.ts                    Claude calls + parsing JSON from the reply
   researchTypes.ts         Research types and their card sections. Add your own here
   citation.ts              Chicago / MLA / APA formatting
+  search.ts                Search engine adapters (Brave, Claude fallback, mock)
   presets.ts               Frame sizes and note colors
   web.ts                   Fetching pages safely for previews
   mock.ts                  Fake data for mock mode

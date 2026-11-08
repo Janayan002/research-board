@@ -4,7 +4,7 @@
 // Flow: pick a type → prompt → result list → keep / skip → generate a card or pull images → onto the canvas.
 
 import { useState } from "react";
-import { IconClose, IconImage, IconSearch, IconSparkle, IconTrash, RESEARCH_ICONS } from "./Icons";
+import { IconImage, IconSparkle, IconTrash, RESEARCH_ICONS } from "./Icons";
 import { hostOf } from "./CardView";
 import { uid, useBoards } from "@/lib/store";
 import { RESEARCH_TYPES, defaultSectionIds, researchType } from "@/lib/researchTypes";
@@ -14,10 +14,9 @@ import type { Board, Candidate, Card, GeneratedCard, ResearchSession } from "@/l
 type DistributiveOmit<T, K extends keyof any> = T extends any ? Omit<T, K> : never;
 export type NewCard = DistributiveOmit<Card, "id" | "x" | "y" | "createdAt">;
 
+// The "AI research" tab of the search panel.
 type Props = {
   board: Board;
-  open: boolean;
-  onClose: () => void;
   onAddCard: (card: NewCard) => void;
   onFindImages: (urls: string[], title: string, creator?: string) => void;
 };
@@ -31,7 +30,7 @@ async function postJson<T>(url: string, body: unknown): Promise<T> {
 
 type ResearchResponse = { candidates: Omit<Candidate, "id" | "status">[]; mock?: boolean };
 
-export default function ResearchPanel({ board, open, onClose, onAddCard, onFindImages }: Props) {
+export default function ResearchPanel({ board, onAddCard, onFindImages }: Props) {
   const addSession = useBoards((s) => s.addSession);
   const removeSession = useBoards((s) => s.removeSession);
   const updateCandidate = useBoards((s) => s.updateCandidate);
@@ -114,12 +113,7 @@ export default function ResearchPanel({ board, open, onClose, onAddCard, onFindI
     });
 
   return (
-    <aside className={`tray right-panel ${open ? "" : "collapsed"}`} aria-hidden={!open}>
-      <div className="rp-head">
-        <div className="t"><IconSparkle size={18} /> Research</div>
-        <button className="icon-btn" onClick={onClose} title="Hide panel  Ctrl \" aria-label="Hide research panel"><IconClose size={16} /></button>
-      </div>
-
+    <>
       <div className="rp-form">
         <div className="type-chips">
           {RESEARCH_TYPES.map((t) => {
@@ -145,7 +139,7 @@ export default function ResearchPanel({ board, open, onClose, onAddCard, onFindI
           </select>
           <div style={{ flex: 1 }} />
           <button className="btn primary" onClick={search} disabled={loading || !query.trim()}>
-            {loading ? <><span className="spinner" /> Searching…</> : <><IconSearch size={15} /> Search</>}
+            {loading ? <><span className="spinner" /> Researching…</> : <><IconSparkle size={15} /> Research</>}
           </button>
         </div>
         {error && <div className="error-banner">{error}</div>}
@@ -154,8 +148,8 @@ export default function ResearchPanel({ board, open, onClose, onAddCard, onFindI
       <div className="rp-scroll">
         {board.research.length === 0 && (
           <div className="muted" style={{ lineHeight: 1.55 }}>
-            Pick what you’re looking for (artists, museums, articles, exhibitions, apps…) and describe it. Keep the results you like,
-            then pull their images onto the canvas or generate a card with sources.
+            AI research finds and explains things for you. Pick a type, describe what you need, keep the results you like,
+            then generate a card with sources or pull in their images. Each request runs a few web searches (about 2–4¢).
           </div>
         )}
 
@@ -180,7 +174,9 @@ export default function ResearchPanel({ board, open, onClose, onAddCard, onFindI
               )}
               {s.candidates.length === 0 && <div className="muted">No matches found. Try rewording.</div>}
 
-              {s.candidates.map((c) => {
+              {s.candidates.map((c, idx) => {
+                const firstRelated = s.candidates.some((x) => x.match === "exact") && c.match !== "exact" &&
+                  s.candidates.findIndex((x) => x.match !== "exact") === idx;
                 const sel = picks[c.id] ?? defaultSectionIds(s.type);
                 const imagesBtn = c.sourceUrl && (
                   <button className="btn small" onClick={() => onFindImages([c.sourceUrl!], `Images for ${c.name}`, s.type === "artist" ? c.name : undefined)}>
@@ -188,13 +184,19 @@ export default function ResearchPanel({ board, open, onClose, onAddCard, onFindI
                   </button>
                 );
                 return (
-                  <div key={c.id} className={`cand ${c.status}`}>
+                  <div key={c.id}>
+                  {firstRelated && <div className="related-head">Similar {st.label.toLowerCase()}</div>}
+                  <div className={`cand ${c.status}`}>
                     <div className="cand-top">
                       <div style={{ flex: 1 }}>
                         <div className="cand-name">{c.name}</div>
                         {c.meta && <div className="cand-meta">{c.meta}</div>}
                       </div>
-                      {c.status === "added" && <span className="pill">On board</span>}
+                      {c.status === "added"
+                        ? <span className="pill">On board</span>
+                        : c.match === "exact"
+                          ? <span className="pill exact">Exact match</span>
+                          : null}
                     </div>
                     <div className="cand-why">{c.why}</div>
                     {c.sourceUrl && (
@@ -233,6 +235,7 @@ export default function ResearchPanel({ board, open, onClose, onAddCard, onFindI
                       </div>
                     )}
                   </div>
+                  </div>
                 );
               })}
 
@@ -248,6 +251,6 @@ export default function ResearchPanel({ board, open, onClose, onAddCard, onFindI
           );
         })}
       </div>
-    </aside>
+    </>
   );
 }

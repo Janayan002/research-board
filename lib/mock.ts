@@ -20,6 +20,7 @@ export function mockCandidates(query: string, rt: ResearchType, count: number, e
   const pool = (FAKE[rt.id] ?? FAKE.any).filter((n) => !exclude.includes(`${n} (mock)`));
   return pool.slice(0, count).map((n, i) => ({
     name: `${n} (mock)`,
+    match: (i === 0 ? "exact" : "related") as "exact" | "related",
     meta: META[rt.id],
     why: `Placeholder ${rt.singular} #${i + 1} for “${query.slice(0, 60)}”. Add an API key to get real results.`,
     sourceUrl: "https://example.com/",

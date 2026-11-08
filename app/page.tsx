@@ -138,12 +138,12 @@ function BoardThumb({ board }: { board: Board }) {
   const s = Math.min(200 / W, 110 / H);
   return (
     <div style={{ position: "relative", width: W * s, height: H * s }}>
-      <div style={{ position: "absolute", left: -minX * s, top: -minY * s, width: frame.w * s, height: frame.h * s, background: "var(--sheet)", borderRadius: 1, boxShadow: "0 1px 3px rgba(70,52,20,.15)" }} />
+      <div style={{ position: "absolute", left: -minX * s, top: -minY * s, width: frame.w * s, height: frame.h * s, background: "var(--sheet)", borderRadius: 1, boxShadow: "0 0 0 1px rgba(0,0,0,.08)" }} />
       {cards.map((c) => (
         <div key={c.id} style={{
           position: "absolute", left: (c.x - minX) * s, top: (c.y - minY) * s, width: c.w * (c.scale ?? 1) * s,
           height: (c.kind === "note" ? 90 : c.kind === "link" ? 70 : 220) * (c.scale ?? 1) * s,
-          background: c.kind === "note" ? c.color : c.kind === "image" ? "#b9ae98" : "#e2dbcd", borderRadius: 1,
+          background: c.kind === "note" ? c.color : c.kind === "image" ? "#c4c4c1" : "#e6e6e4", borderRadius: 1,
         }} />
       ))}
     </div>

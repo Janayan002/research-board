@@ -1,23 +1,23 @@
 /* =========================================================
-   Research Board — sketchbook theme
-   Beige desk, white paper pages, ink-black text,
+   Research Board — light sketchbook theme
+   Light grey canvas, white pages and panels, ink-black text,
    images and notes taped down, blue pencil for selection.
    ========================================================= */
 
 :root {
   /* color */
-  --ink: #ece6d8;          /* the desk: canvas background */
-  --tray: #faf8f3;         /* side panels */
-  --tray-2: #f2ede3;       /* raised surfaces */
+  --ink: #f5f5f5;          /* canvas background (light grey, like Figma) */
+  --tray: #ffffff;         /* side panels */
+  --tray-2: #f4f4f3;       /* raised surfaces */
   --field: #ffffff;        /* inputs */
-  --sheet: #fffefa;        /* the frame: a sketchbook page */
-  --line: #e2dbcd;
-  --line-strong: #cfc6b4;
-  --paper: #1f1d1a;        /* main text (ink) */
-  --paper-2: #5e584e;      /* secondary text */
-  --paper-3: #968e80;      /* hints */
-  --primary: #1f1d1a;      /* primary buttons / active tool */
-  --primary-ink: #fffefa;  /* text on primary */
+  --sheet: #ffffff;        /* the frame: a sketchbook page */
+  --line: #e6e6e4;
+  --line-strong: #d3d3d0;
+  --paper: #1e1e1e;        /* main text (ink) */
+  --paper-2: #5c5c5a;      /* secondary text */
+  --paper-3: #949491;      /* hints */
+  --primary: #1e1e1e;      /* primary buttons / active tool */
+  --primary-ink: #ffffff;  /* text on primary */
   --primary-soft: rgba(31, 29, 26, 0.06);
   --hover: rgba(31, 29, 26, 0.06);
   --select: #2f6fdb;       /* blue pencil — selection */
@@ -31,8 +31,8 @@
   --r-card: 4px;
   --r-ctl: 8px;
   --shadow-tray: none;
-  --shadow-card: 0 1px 2px rgba(70, 52, 20, 0.08), 0 6px 18px rgba(70, 52, 20, 0.08);
-  --shadow-float: 0 10px 30px rgba(70, 52, 20, 0.14);
+  --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.06), 0 6px 18px rgba(0, 0, 0, 0.06);
+  --shadow-float: 0 10px 30px rgba(0, 0, 0, 0.1);
 
   /* paper grain */
   --grain: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='180' height='180'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0.35 0 0 0 0 0.27 0 0 0 0 0.15 0 0 0 0.07 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
@@ -101,7 +101,7 @@ select.input { cursor: pointer; }
   border: 1px solid var(--line-strong); color: var(--paper-2); background: var(--ink);
 }
 .chk { display: flex; align-items: center; gap: 8px; cursor: pointer; }
-.chk input { accent-color: #1f1d1a; width: 14px; height: 14px; }
+.chk input { accent-color: #1e1e1e; width: 14px; height: 14px; }
 .spinner {
   width: 12px; height: 12px; border: 2px solid currentColor; border-right-color: transparent; border-radius: 50%;
   animation: spin 0.7s linear infinite; display: inline-block;
@@ -128,8 +128,8 @@ select.input { cursor: pointer; }
 .preset-thumb { height: 70px; display: grid; place-items: center; }
 .preset-thumb > div {
   background-color: var(--sheet); border-radius: 1px;
-  background-image: radial-gradient(rgba(70, 52, 20, 0.2) 0.8px, transparent 1px);
-  background-size: 6px 6px; box-shadow: 0 1px 3px rgba(70, 52, 20, 0.12);
+  background-image: radial-gradient(rgba(0, 0, 0, 0.16) 0.8px, transparent 1px);
+  background-size: 6px 6px; box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.08);
 }
 .preset-thumb > div { border: 1px solid var(--line-strong); }
 .preset.selected .preset-thumb > div { border-color: var(--paper); }
@@ -160,8 +160,8 @@ select.input { cursor: pointer; }
 .canvas {
   position: absolute; inset: 0; overflow: hidden; touch-action: none; outline: none;
   background-color: var(--ink);
-  background-image: var(--grain);
-  background-size: 180px 180px;
+  background-image: radial-gradient(rgba(0, 0, 0, 0.07) 1px, transparent 1.2px);
+  background-size: 24px 24px;
 }
 .canvas.tool-hand, .canvas.panning { cursor: grab; }
 .canvas.panning:active { cursor: grabbing; }
@@ -170,9 +170,9 @@ select.input { cursor: pointer; }
 .frame {
   position: absolute; left: 0; top: 0; border-radius: 3px;
   background-color: var(--sheet);
-  background-image: var(--grain), radial-gradient(rgba(70, 52, 20, 0.16) 1.1px, transparent 1.4px);
-  background-size: 180px 180px, 28px 28px;
-  box-shadow: 0 1px 2px rgba(70, 52, 20, 0.1), 0 18px 50px rgba(70, 52, 20, 0.14);
+  background-image: radial-gradient(rgba(0, 0, 0, 0.1) 1px, transparent 1.3px);
+  background-size: 28px 28px;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.06), 0 8px 30px rgba(0, 0, 0, 0.06);
 }
 .frame-label {
   position: absolute; left: 0; bottom: 100%; white-space: nowrap; color: var(--paper);
@@ -360,7 +360,7 @@ select.input { cursor: pointer; }
   display: grid; place-items: center; padding: 24px; backdrop-filter: blur(3px);
 }
 .modal {
-  background: var(--tray); border-radius: 14px; border: 1px solid var(--line); box-shadow: 0 20px 60px rgba(70, 52, 20, 0.22); width: 100%; max-width: 980px;
+  background: var(--tray); border-radius: 14px; border: 1px solid var(--line); box-shadow: 0 20px 60px rgba(0, 0, 0, 0.18); width: 100%; max-width: 980px;
   max-height: 88vh; display: flex; flex-direction: column; overflow: hidden;
 }
 .modal-head { display: flex; align-items: center; gap: 10px; padding: 14px 14px 10px 18px; }
@@ -405,7 +405,7 @@ select.input { cursor: pointer; }
   display: flex; align-items: center; gap: 9px; height: 42px; padding: 0 8px 0 14px; border-radius: 999px;
   background: var(--tray-2); border: 1px solid var(--line-strong); color: var(--paper-3);
 }
-.sp-box:focus-within { border-color: var(--paper-3); background: var(--field); box-shadow: 0 1px 6px rgba(70, 52, 20, 0.1); }
+.sp-box:focus-within { border-color: var(--paper-3); background: var(--field); box-shadow: 0 1px 6px rgba(0, 0, 0, 0.08); }
 .sp-box input { flex: 1; min-width: 0; border: 0; outline: none; background: transparent; color: var(--paper); font-size: 14.5px; }
 .sp-box input::placeholder { color: var(--paper-3); }
 .sp-clear { border: 0; background: transparent; color: var(--paper-3); cursor: pointer; width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; }
@@ -505,21 +505,21 @@ select.input { cursor: pointer; }
 
 /* ---------- sketchbook details ---------- */
 .home { min-height: 100vh; }
-body { background-image: var(--grain); background-size: 180px 180px; }
-.card { border-color: rgba(70, 52, 20, 0.12); }
+body { background: var(--ink); }
+.card { border-color: rgba(0, 0, 0, 0.09); }
 .card-research, .card-link { background: var(--field); }
 .card-research .hero { border-bottom: 1px solid var(--line); }
 /* a strip of masking tape on images and notes */
 .card-image::before, .card-note::before {
   content: ""; position: absolute; top: -11px; left: 50%; width: 76px; height: 22px; z-index: 1;
   transform: translateX(-50%) rotate(var(--tilt, -2deg));
-  background: var(--tape); box-shadow: 0 1px 1px rgba(70, 52, 20, 0.08);
+  background: var(--tape); box-shadow: 0 1px 1px rgba(0, 0, 0, 0.06);
   clip-path: polygon(2% 0, 98% 4%, 100% 50%, 97% 100%, 3% 96%, 0 50%);
   pointer-events: none;
 }
 .card-note {
   font-family: var(--font-hand); font-size: 24px; line-height: 1.15; padding: 18px 18px 16px; border-radius: 1px;
-  box-shadow: 0 1px 2px rgba(70, 52, 20, 0.1), 0 8px 16px rgba(70, 52, 20, 0.08);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08), 0 8px 16px rgba(0, 0, 0, 0.06);
 }
 .card-note textarea { font-family: var(--font-hand); font-size: 24px; line-height: 1.15; }
 .card-note .placeholder, .card-note textarea::placeholder { color: rgba(31, 29, 26, 0.38); }
@@ -527,5 +527,5 @@ body { background-image: var(--grain); background-size: 180px 180px; }
 .frame-label { color: var(--paper-2); }
 .dock .icon-btn.active, .icon-btn.active { background: var(--primary); color: var(--primary-ink); }
 .picker-check { background: rgba(255, 255, 255, 0.85); border-color: rgba(31, 29, 26, 0.35); color: #fff; }
-.mock-banner { background: #f6efdc; border-color: #e5d7b0; color: #6b5a2a; }
+.mock-banner { background: #f6f6f5; border-color: var(--line-strong); color: var(--paper-2); }
 .reader-content pre { background: var(--tray-2); }

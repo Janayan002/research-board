@@ -11,7 +11,7 @@ Made for **visual research**. Pick a frame size, then:
 - **Preview pages next to your board:** click any search result or link to open it in a side pane. Sites that allow it show live; others show a clean **reader view** where clicking an image adds it to your board with its citation. **Open** sends it to your browser (or Cmd/Ctrl-click any link).
 - **Pages:** split a board into pages (e.g. "Artists", "Museums", "Materials").
 
-Built with Next.js, React, Zustand and the Claude API with its built-in web search tool. Minimal black, white and grey theme with the Geist font (bundled, no external requests).
+Built with Next.js, React, Zustand and the Claude API with its built-in web search tool. Light "sketchbook" theme: beige desk, white paper pages, taped-down images and notes. Fonts: Geist, plus Caveat for handwritten notes (bundled, no external requests).
 
 ---
 

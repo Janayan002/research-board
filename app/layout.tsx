@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 // font is bundled with the app (no external requests)
 import "@fontsource-variable/geist";
+import "@fontsource/caveat/500.css"; // handwriting for notes
 import "./globals.css";
 
 export const metadata: Metadata = {

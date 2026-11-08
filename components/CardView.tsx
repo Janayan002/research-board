@@ -38,6 +38,8 @@ export default function CardView(p: Props) {
     background: card.kind === "note" ? card.color : undefined,
     transform: scale !== 1 ? `scale(${scale})` : undefined,
     transformOrigin: "0 0",
+    // each card's tape sits at a slightly different angle, like it was stuck down by hand
+    ["--tilt" as string]: `${((card.id.charCodeAt(0) + card.id.charCodeAt(1)) % 7) - 3}deg`,
   };
 
   return (

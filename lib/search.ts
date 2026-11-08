@@ -17,20 +17,50 @@ const clean = (s?: string) =>
     .replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/\s+/g, " ").trim();
 const host = (u?: string) => { try { return new URL(u || "").hostname.replace(/^www\./, ""); } catch { return ""; } };
 
+// keys pasted with quotes or spaces are a common mistake — clean them up
+const braveKey = () => (process.env.BRAVE_API_KEY || "").trim().replace(/^["']|["']$/g, "");
+
+export class BraveError extends Error {
+  constructor(message: string, public code?: string) { super(message); }
+}
+
 async function brave(path: string, params: Record<string, string | number>) {
   const qs = new URLSearchParams(Object.entries(params).map(([k, v]) => [k, String(v)]));
   const res = await fetch(`${BRAVE}/${path}?${qs}`, {
-    headers: { Accept: "application/json", "X-Subscription-Token": process.env.BRAVE_API_KEY! },
+    headers: { Accept: "application/json", "X-Subscription-Token": braveKey() },
   });
-  if (res.status === 401 || res.status === 403) throw new Error("Your Brave Search key was rejected. Check BRAVE_API_KEY in .env.local.");
-  if (res.status === 429) throw new Error("Search limit reached for now — wait a moment and try again.");
-  if (!res.ok) throw new Error(`Search failed (${res.status}).`);
-  return res.json();
+  if (res.ok) return res.json();
+  // Brave explains errors in the body, e.g. {"error":{"code":"SUBSCRIPTION_TOKEN_INVALID","detail":"..."}}
+  const body = await res.json().catch(() => ({}));
+  const code: string | undefined = body?.error?.code;
+  const detail: string | undefined = body?.error?.detail;
+  console.error(`[brave] ${res.status} ${code ?? ""} ${detail ?? ""}`);
+  if (code === "SUBSCRIPTION_TOKEN_INVALID" || res.status === 401 || res.status === 403)
+    throw new BraveError("Brave didn’t accept your BRAVE_API_KEY. Check that you copied the whole key (no quotes or spaces) and that it’s from an active Search plan.", "auth");
+  if (res.status === 429) throw new BraveError("Brave search limit reached for now. Wait a moment and try again.", "rate");
+  throw new BraveError(`Brave search failed (${res.status}${detail ? `: ${detail}` : ""}).`, code);
 }
 
 // ---------- web ----------
-export async function searchWeb(q: string, page: number): Promise<{ results: WebResult[]; engine: Engine; more: boolean }> {
+type WebOut = { results: WebResult[]; engine: Engine; more: boolean; warning?: string };
+
+export async function searchWeb(q: string, page: number): Promise<WebOut> {
   if (hasBrave()) {
+    try {
+      return await braveWeb(q, page);
+    } catch (e) {
+      // keep searching with Claude if we can, and tell the user what went wrong with Brave
+      if (!hasApiKey()) throw e;
+      const out = await claudeWeb(q, page);
+      return { ...out, warning: (e as Error).message + " Using Claude search for now." };
+    }
+  }
+  if (hasApiKey()) return claudeWeb(q, page);
+  return mockWeb(q, page);
+}
+
+async function braveWeb(q: string, page: number): Promise<WebOut> {
+  {
     const d = await brave("web/search", { q, count: 20, offset: Math.min(page, 9) });
     const results: WebResult[] = (d.web?.results || []).map((r: any) => ({
       title: clean(r.title),
@@ -43,8 +73,10 @@ export async function searchWeb(q: string, page: number): Promise<{ results: Web
     }));
     return { results, engine: "brave", more: Boolean(d.query?.more_results_available) && page < 9 };
   }
+}
 
-  if (hasApiKey()) {
+async function claudeWeb(q: string, page: number): Promise<WebOut> {
+  {
     const r = await runWithSearch({
       model: process.env.RESEARCH_MODEL || "claude-haiku-5-5",
       system: `You are a search engine. Run ONE web search for the user's query exactly as typed${page ? ` (this is results page ${page + 1}, so look for different pages than the most obvious ones)` : ""}.
@@ -63,7 +95,9 @@ Only include pages that appeared in your search results. No commentary.`,
     if (!results.length) results = r.sources.map((s) => ({ title: s.title, url: s.url, site: host(s.url) }));
     return { results, engine: "claude", more: page < 2 };
   }
+}
 
+async function mockWeb(q: string, page: number): Promise<WebOut> {
   await new Promise((r) => setTimeout(r, 500));
   return {
     results: Array.from({ length: 8 }, (_, i) => ({
@@ -78,8 +112,24 @@ Only include pages that appeared in your search results. No commentary.`,
 }
 
 // ---------- images ----------
-export async function searchImages(q: string, page: number): Promise<{ images: ImageResult[]; engine: Engine; more: boolean }> {
+type ImagesOut = { images: ImageResult[]; engine: Engine; more: boolean; warning?: string };
+
+export async function searchImages(q: string, page: number): Promise<ImagesOut> {
   if (hasBrave()) {
+    try {
+      return await braveImages(q, page);
+    } catch (e) {
+      if (!hasApiKey()) throw e;
+      const out = await claudeImages(q, page);
+      return { ...out, warning: (e as Error).message + " Using Claude search for now." };
+    }
+  }
+  if (hasApiKey()) return claudeImages(q, page);
+  return mockImages(q, page);
+}
+
+async function braveImages(q: string, page: number): Promise<ImagesOut> {
+  {
     // the image endpoint has no paging, so ask for more results each time and return the new slice
     const count = Math.min(200, 50 * (page + 1));
     const d = await brave("images/search", { q, count, safesearch: "strict" });
@@ -94,10 +144,12 @@ export async function searchImages(q: string, page: number): Promise<{ images: I
     })).filter((x: ImageResult) => x.src);
     return { images: all.slice(page * 50), engine: "brave", more: all.length >= count && count < 200 };
   }
+}
 
-  if (hasApiKey()) {
+async function claudeImages(q: string, page: number): Promise<ImagesOut> {
+  {
     // No image search without Brave: find pages with Claude, then collect the images on those pages.
-    const web = await searchWeb(`${q} images`, page);
+    const web = await claudeWeb(`${q} images`, page);
     const pages = web.results.slice(0, 5);
     const settled = await Promise.allSettled(pages.map((p) => pageImages(p.url)));
     const images: ImageResult[] = [];
@@ -109,7 +161,9 @@ export async function searchImages(q: string, page: number): Promise<{ images: I
     });
     return { images, engine: "claude", more: web.more };
   }
+}
 
+async function mockImages(q: string, page: number): Promise<ImagesOut> {
   await new Promise((r) => setTimeout(r, 500));
   return {
     images: Array.from({ length: 12 }, (_, i) => {

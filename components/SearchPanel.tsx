@@ -29,7 +29,7 @@ const today = () => new Date().toISOString().slice(0, 10);
 
 const ENGINE_NOTE: Record<Engine, string> = {
   brave: "Results from Brave Search",
-  claude: "Results from Claude web search (slower). Add a Brave key for faster results.",
+  claude: "Results from Claude web search (slower). A working Brave key makes this faster.",
   mock: "Mock results. Add a Brave or Claude API key in .env.local for real results.",
 };
 
@@ -38,8 +38,8 @@ export default function SearchPanel({ board, open, onClose, onAddCard, onAddLink
   const [input, setInput] = useState("");
   const [query, setQuery] = useState("");
 
-  const [web, setWeb] = useState<{ q: string; results: WebResult[]; page: number; more: boolean; engine?: Engine } | null>(null);
-  const [imgs, setImgs] = useState<{ q: string; images: ImageResult[]; page: number; more: boolean; engine?: Engine } | null>(null);
+  const [web, setWeb] = useState<{ q: string; results: WebResult[]; page: number; more: boolean; engine?: Engine; warning?: string } | null>(null);
+  const [imgs, setImgs] = useState<{ q: string; images: ImageResult[]; page: number; more: boolean; engine?: Engine; warning?: string } | null>(null);
   const [loading, setLoading] = useState<null | "web" | "images" | "more">(null);
   const [error, setError] = useState<string | null>(null);
   const [picked, setPicked] = useState<Set<string>>(new Set());
@@ -57,9 +57,9 @@ export default function SearchPanel({ board, open, onClose, onAddCard, onAddLink
       const d = await res.json();
       if (!res.ok) throw new Error(d.error || "Search failed.");
       if (kind === "web") {
-        setWeb((prev) => ({ q, page, more: d.more, engine: d.engine, results: page && prev ? [...prev.results, ...d.results] : d.results }));
+        setWeb((prev) => ({ q, page, more: d.more, engine: d.engine, warning: d.warning, results: page && prev ? [...prev.results, ...d.results] : d.results }));
       } else {
-        setImgs((prev) => ({ q, page, more: d.more, engine: d.engine, images: page && prev ? [...prev.images, ...d.images] : d.images }));
+        setImgs((prev) => ({ q, page, more: d.more, engine: d.engine, warning: d.warning, images: page && prev ? [...prev.images, ...d.images] : d.images }));
         if (!page) { setPicked(new Set()); setFailed(new Set()); }
       }
       if (!page) scrollRef.current?.scrollTo({ top: 0 });
@@ -160,6 +160,7 @@ export default function SearchPanel({ board, open, onClose, onAddCard, onAddLink
               {!web && loading !== "web" && <div className="muted sp-empty">Search like you would on Google. Add any result to your board as a link, pull images from its page, or turn it into a summary card.</div>}
               {web && loading !== "web" && (
                 <>
+                  {web.warning && <div className="error-banner" style={{ marginBottom: 10 }}>{web.warning}</div>}
                   {web.engine && <div className="sp-engine">{ENGINE_NOTE[web.engine]}</div>}
                   {web.results.length === 0 && <div className="muted">No results for “{web.q}”.</div>}
                   {web.results.map((r) => (
@@ -201,6 +202,7 @@ export default function SearchPanel({ board, open, onClose, onAddCard, onAddLink
               {!imgs && loading !== "images" && <div className="muted sp-empty">Search for images, click the ones you want, then add them to your board. Each one keeps its source for citations.</div>}
               {imgs && loading !== "images" && (
                 <>
+                  {imgs.warning && <div className="error-banner" style={{ marginBottom: 10 }}>{imgs.warning}</div>}
                   {imgs.engine && <div className="sp-engine">{ENGINE_NOTE[imgs.engine]}</div>}
                   {visibleImages.length === 0 && <div className="muted">No images for “{imgs.q}”.</div>}
                   <div className="ir-grid">

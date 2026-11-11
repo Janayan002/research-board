@@ -3,7 +3,7 @@
 
 import { Readability } from "@mozilla/readability";
 import { parseHTML } from "linkedom";
-import { bestFromSrcset, extractImages, fetchHtml, isSafePublicUrl, pageInfoFrom, type FoundImage, type PageInfo } from "./web";
+import { bestImageSrc, extractImages, fetchHtml, isSafePublicUrl, pageInfoFrom, sharpImage, type FoundImage, type PageInfo } from "./web";
 
 export type ReaderPage = PageInfo & {
   byline?: string;
@@ -54,13 +54,14 @@ function sanitize(html: string, base: string): { html: string; images: FoundImag
         if (href) keep.href = href;
       }
       if (tag === "img") {
-        const src = abs(bestFromSrcset(child.getAttribute("srcset") || child.getAttribute("data-srcset") || undefined)
-          || child.getAttribute("data-src") || child.getAttribute("data-original") || child.getAttribute("src"));
-        if (!src || /\.svg(\?|$)/i.test(src)) { child.remove(); continue; }
-        keep.src = src;
+        const raw = abs(bestImageSrc((n) => child.getAttribute(n)));
+        if (!raw || /\.svg(\?|$)/i.test(raw)) { child.remove(); continue; }
+        const sharp = sharpImage(raw);
+        keep.src = sharp.src;
+        if (sharp.fallback) keep["data-fallback"] = sharp.fallback;
         const alt = child.getAttribute("alt");
         if (alt) keep.alt = alt;
-        images.push({ src, alt: alt || undefined });
+        images.push({ ...sharp, alt: alt || undefined });
       }
       for (const a of Array.from(child.attributes) as any[]) child.removeAttribute(a.name);
       for (const [k, v] of Object.entries(keep)) child.setAttribute(k, v);
@@ -89,9 +90,10 @@ export async function readPage(url: string): Promise<ReaderPage> {
   // pages that are mostly pictures (portfolios, galleries) often have little "article" text: add their images
   if (clean.images.length < 3) {
     const extra = extractImages(r.html, r.finalUrl, page).filter((i) => !clean.images.some((c) => c.src === i.src)).slice(0, 24);
+    const q = (s = "") => s.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;");
     if (extra.length) {
       clean = {
-        html: clean.html + (clean.html ? "<hr>" : "") + extra.map((i) => `<figure><img src="${i.src}" alt="${(i.alt || "").replace(/"/g, "&quot;")}" loading="lazy" referrerpolicy="no-referrer"></figure>`).join(""),
+        html: clean.html + (clean.html ? "<hr>" : "") + extra.map((i) => `<figure><img src="${q(i.src)}"${i.fallback ? ` data-fallback="${q(i.fallback)}"` : ""} alt="${q(i.alt)}" loading="lazy" referrerpolicy="no-referrer"></figure>`).join(""),
         images: [...clean.images, ...extra],
       };
     }

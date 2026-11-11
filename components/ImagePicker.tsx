@@ -8,7 +8,7 @@ import { IconClose, IconImage } from "./Icons";
 import type { Citation } from "@/lib/types";
 
 type PageInfo = { url: string; title?: string; siteName?: string; author?: string; published?: string };
-type Found = { src: string; alt?: string };
+type Found = { src: string; alt?: string; fallback?: string };
 type PageResult = { url: string; status: "loading" | "done" | "error"; page?: PageInfo; images: Found[]; error?: string };
 
 export type PickedImage = { src: string; cite: Citation; fallback?: string };
@@ -22,13 +22,14 @@ type Props = {
 };
 
 const host = (u: string) => { try { return new URL(u).hostname.replace(/^www\./, ""); } catch { return u; } };
-const today = () => new Date().toISOString().slice(0, 10);
+const today = () => new Date().toLocaleDateString("en-CA");
 
 export default function ImagePicker({ urls, title, creator, onAdd, onClose }: Props) {
   const [pages, setPages] = useState<PageResult[]>([]);
   const [picked, setPicked] = useState<Set<string>>(new Set());
   const [extra, setExtra] = useState("");
   const [failed, setFailed] = useState<Set<string>>(new Set()); // images that wouldn't load (hotlink-blocked etc.)
+  const [usedFallback, setUsedFallback] = useState<Set<string>>(new Set()); // sharpened URL failed, showing the page's own copy
 
   const load = (url: string) => {
     setPages((p) => (p.some((x) => x.url === url) ? p : [...p, { url, status: "loading", images: [] }]));
@@ -58,14 +59,16 @@ export default function ImagePicker({ urls, title, creator, onAdd, onClose }: Pr
     const out: PickedImage[] = [];
     for (const p of pages) for (const img of p.images) {
       if (!picked.has(img.src)) continue;
+      const fb = usedFallback.has(img.src);
       out.push({
-        src: img.src,
+        src: fb ? img.fallback! : img.src,
+        fallback: fb ? undefined : img.fallback,
         cite: {
           title: img.alt || p.page?.title,
           creator: creator || p.page?.author,
           siteName: p.page?.siteName || host(p.page?.url || p.url),
           pageUrl: p.page?.url || p.url,
-          imageUrl: img.src,
+          imageUrl: fb ? img.fallback : img.src,
           published: p.page?.published,
           accessed: today(),
         },
@@ -127,8 +130,10 @@ export default function ImagePicker({ urls, title, creator, onAdd, onClose }: Pr
                   {visible.map((img) => (
                     <button key={img.src} className={`picker-item ${picked.has(img.src) ? "on" : ""}`} onClick={() => toggle(img.src)} title={img.alt || img.src}>
                       {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img src={img.src} alt={img.alt || ""} loading="lazy" referrerPolicy="no-referrer"
-                        onError={() => setFailed((f) => new Set(f).add(img.src))} />
+                      <img src={usedFallback.has(img.src) ? img.fallback : img.src} alt={img.alt || ""} loading="lazy" referrerPolicy="no-referrer"
+                        onError={() => img.fallback && !usedFallback.has(img.src)
+                          ? setUsedFallback((f) => new Set(f).add(img.src))
+                          : setFailed((f) => new Set(f).add(img.src))} />
                       <span className="picker-check">{picked.has(img.src) ? "✓" : ""}</span>
                     </button>
                   ))}

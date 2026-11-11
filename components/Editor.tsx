@@ -9,11 +9,14 @@ import PreviewPane from "./PreviewPane";
 import { usePreview } from "@/lib/preview";
 import ImagePicker, { type PickedImage } from "./ImagePicker";
 import CitationsModal from "./CitationsModal";
+import ExportDialog from "./ExportDialog";
 import type { CiteStyle } from "@/lib/citation";
 import { hostOf } from "./CardView";
-import { IconFit, IconHand, IconImage, IconLink, IconMinus, IconNote, IconPlus, IconQuote, IconSearch, IconSelect } from "./Icons";
+import { IconFit, IconHand, IconImage, IconLink, IconMinus, IconPlus, IconQuote, IconSearch, IconSelect, IconText } from "./Icons";
 import { currentPage, uid, useBoards } from "@/lib/store";
-import { NOTE_COLORS } from "@/lib/presets";
+import { lastTextStyle } from "@/lib/fonts";
+import { useExtensionClips } from "@/lib/extension";
+import { pageIndexAt, pageOffset, pagesBox } from "@/lib/layout";
 import type { Board, Card, Citation, Viewport } from "@/lib/types";
 
 const IMAGE_URL = /\.(png|jpe?g|gif|webp|avif|svg)(\?.*)?$/i;
@@ -23,8 +26,9 @@ const MAX_PASTE_BYTES = 1.5 * 1024 * 1024; // pasted images are stored in the br
 const isTyping = (t: EventTarget | null) =>
   t instanceof Element && !!t.closest("input, textarea, select, [contenteditable]");
 
-const today = () => new Date().toISOString().slice(0, 10);
+const today = () => new Date().toLocaleDateString("en-CA");
 const looksLikeImage = (u: string) => IMAGE_URL.test(u.split("#")[0]);
+
 
 export default function Editor({ board }: { board: Board }) {
   const addCard = useBoards((s) => s.addCard);
@@ -35,17 +39,24 @@ export default function Editor({ board }: { board: Board }) {
   const setCurrentPage = useBoards((s) => s.setCurrentPage);
   const page = currentPage(board);
 
+  const pageIndex = Math.max(0, board.pages.findIndex((p) => p.id === page.id));
+
   const containerRef = useRef<HTMLDivElement | null>(null);
-  // the viewport belongs to one page; keep the page id with it so switching pages never mixes them up
-  const [view, setView] = useState<{ pageId: string; vp: Viewport }>({ pageId: page.id, vp: page.viewport ?? { x: 0, y: 0, zoom: 1 } });
-  const viewport = view.pageId === page.id ? view.vp : page.viewport ?? view.vp;
-  const setViewport = useCallback(
-    (u: Viewport | ((v: Viewport) => Viewport)) => setView((prev) => ({ pageId: prev.pageId, vp: typeof u === "function" ? u(prev.vp) : u })),
-    []
-  );
+  // one viewport for the whole canvas (all pages sit side by side on it)
+  const [viewport, setViewportState] = useState<Viewport>(board.viewport ?? { x: 0, y: 0, zoom: 0.25 });
+  const anim = useRef<number | null>(null);
+  const setViewport = useCallback((u: Viewport | ((v: Viewport) => Viewport)) => {
+    if (anim.current) { cancelAnimationFrame(anim.current); anim.current = null; } // any pan/zoom stops a page jump
+    setViewportState(u);
+  }, []);
   const [tool, setTool] = useState<Tool>("select");
   const [spaceDown, setSpaceDown] = useState(false);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  // selection: one or more cards (shift-click or drag a box to select several)
+  const [selection, setSelection] = useState<string[]>([]);
+  const selectedId = selection.length === 1 ? selection[0] : null;
+  const setSelectedId = useCallback((id: string | null) => setSelection(id ? [id] : []), []);
+  const undo = useBoards((s) => s.undo);
+  const redo = useBoards((s) => s.redo);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [panelOpen, setPanelOpen] = useState(true);
   const [popover, setPopover] = useState<null | "link" | "image">(null);
@@ -53,8 +64,10 @@ export default function Editor({ board }: { board: Board }) {
   const [toast, setToast] = useState<string | null>(null);
   const [picker, setPicker] = useState<null | { urls: string[]; title: string; creator?: string }>(null);
   const [showCitations, setShowCitations] = useState(false);
+  const [showExport, setShowExport] = useState(false);
   const [citeStyle, setCiteStyleState] = useState<CiteStyle>("chicago");
   const previewUrl = usePreview((s) => s.url);
+  const closePreview = usePreview((s) => s.close);
   const [previewW, setPreviewWState] = useState(560);
   const [vw, setVw] = useState(1440);
   useEffect(() => {
@@ -63,7 +76,6 @@ export default function Editor({ board }: { board: Board }) {
     window.addEventListener("resize", r);
     return () => window.removeEventListener("resize", r);
   }, []);
-  const pendingSelect = useRef<string | null>(null);
   const cascade = useRef(0);
 
   // remember the citation style between visits (wrapped in try: storage can be unavailable)
@@ -80,9 +92,10 @@ export default function Editor({ board }: { board: Board }) {
   // The canvas fills the window; the floating trays cover its edges, so "visible" means the area between them.
   const LEFT_TRAY = 252, RIGHT_TRAY = 372, DOCK = 80;
   const panelSpace = panelOpen ? RIGHT_TRAY : 0;
-  const canvasW = vw - LEFT_TRAY - (panelOpen ? RIGHT_TRAY : 0) - (previewUrl ? previewW : 0);
+  // the web preview opens on top of the search panel, so only one of them takes space
+  const canvasW = vw - LEFT_TRAY - (previewUrl ? previewW : panelOpen ? RIGHT_TRAY : 0);
   const tight = canvasW < 640; // narrow canvas: stand the dock up vertically and hide zoom buttons
-  const rightSpace = panelSpace + (previewUrl ? previewW : 0); // search panel + web preview
+  const rightSpace = previewUrl ? previewW : panelSpace; // web preview (covers search) or search panel
   const visible = () => {
     const el = containerRef.current;
     const w = el?.clientWidth ?? 1200, h = el?.clientHeight ?? 800;
@@ -91,27 +104,64 @@ export default function Editor({ board }: { board: Board }) {
     return { x0, x1, y0: 0, y1: h - DOCK, cx: (x0 + x1) / 2, cy: (h - DOCK) / 2 };
   };
 
-  const fitViewport = useCallback((): Viewport => {
+  // the viewport that fits a box of the canvas (one page, or several) into the visible area
+  const fitBox = (box: { x: number; y: number; w: number; h: number }): Viewport => {
     const v = visible();
     const pad = 70;
-    const zoom = clampZoom(Math.min((v.x1 - v.x0 - pad * 2) / board.frame.w, (v.y1 - v.y0 - pad * 2) / board.frame.h));
-    return { zoom, x: v.cx - (board.frame.w * zoom) / 2, y: v.cy - (board.frame.h * zoom) / 2 + 10 };
-  }, [board.frame.w, board.frame.h, rightSpace]); // eslint-disable-line react-hooks/exhaustive-deps
-  const fit = useCallback(() => setViewport(fitViewport()), [fitViewport, setViewport]);
+    const zoom = clampZoom(Math.min((v.x1 - v.x0 - pad * 2) / box.w, (v.y1 - v.y0 - pad * 2) / box.h));
+    return { zoom, x: v.cx - (box.x + box.w / 2) * zoom, y: v.cy - (box.y + box.h / 2) * zoom + 10 };
+  };
+  const fitPages = (a: number, z = a) => fitBox(pagesBox(board, a, z));
 
-  // opening the board or switching pages: restore that page's view (or fit the frame the first time)
-  useEffect(() => {
-    setView({ pageId: page.id, vp: page.viewport ?? fitViewport() });
-    setSelectedId(pendingSelect.current);
-    pendingSelect.current = null;
-    setEditingId(null);
-  }, [page.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  // glide to a view (a quick ease, so you can see where you went)
+  const animateTo = (to: Viewport) => {
+    if (anim.current) cancelAnimationFrame(anim.current);
+    const from = viewportRef.current;
+    const t0 = performance.now(), dur = 320;
+    const step = (t: number) => {
+      const k = Math.min(1, (t - t0) / dur), e = 1 - Math.pow(1 - k, 3);
+      // zoom in log space so it feels even
+      const zoom = Math.exp(Math.log(from.zoom) + (Math.log(to.zoom) - Math.log(from.zoom)) * e);
+      setViewportState({ zoom, x: from.x + (to.x - from.x) * e, y: from.y + (to.y - from.y) * e });
+      anim.current = k < 1 ? requestAnimationFrame(step) : null;
+    };
+    anim.current = requestAnimationFrame(step);
+  };
+  const viewportRef = useRef(viewport);
+  viewportRef.current = viewport;
 
-  // save the viewport (debounced) so each page reopens where you left it
+  const fit = () => animateTo(fitPages(pageIndex));
+  const goToPage = (id: string, select?: string) => {
+    const i = board.pages.findIndex((p) => p.id === id);
+    if (i < 0) return;
+    setCurrentPage(board.id, id);
+    animateTo(fitPages(i));
+    if (select !== undefined) setSelectedId(select);
+  };
+
+  // opening the board: where you left off, or fit the current page
   useEffect(() => {
-    const t = setTimeout(() => saveViewport(board.id, view.pageId, view.vp), 400);
+    if (!board.viewport) setViewportState(fitPages(pageIndex));
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // a page was added (or duplicated): show it next to the page before it
+  const pageCount = useRef(board.pages.length);
+  useEffect(() => {
+    if (board.pages.length > pageCount.current) animateTo(fitPages(Math.max(0, pageIndex - 1), pageIndex));
+    pageCount.current = board.pages.length;
+  }, [board.pages.length]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // save the viewport (debounced), and make the page you're looking at the current one
+  useEffect(() => {
+    const t = setTimeout(() => {
+      saveViewport(board.id, viewport);
+      if (anim.current) return;
+      const c = centerWorld();
+      const i = pageIndexAt(board, c.x);
+      if (board.pages[i] && board.pages[i].id !== page.id) setCurrentPage(board.id, board.pages[i].id);
+    }, 250);
     return () => clearTimeout(t);
-  }, [view, board.id, saveViewport]);
+  }, [viewport, board.id, saveViewport]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const zoomBy = (k: number) => {
     const { cx, cy } = visible();
@@ -131,6 +181,7 @@ export default function Editor({ board }: { board: Board }) {
   // new cards get a scale so they're readable at the current zoom (like placing them at "screen size")
   const readableScale = () => Math.round(Math.min(4, Math.max(1, 0.75 / viewport.zoom)) * 100) / 100;
 
+  // `at` is a canvas position; the card goes on the page under it, positioned relative to that page
   const place = (card: NewCard, at?: { x: number; y: number }): string => {
     const id = uid();
     const scale = readableScale();
@@ -140,14 +191,20 @@ export default function Editor({ board }: { board: Board }) {
       const off = (cascade.current++ % 6) * 28 * scale;
       pos = { x: c.x - (card.w * scale) / 2 + off, y: c.y - 120 * scale + off };
     }
-    addCard(board.id, page.id, { ...card, id, scale, x: Math.round(pos.x), y: Math.round(pos.y), createdAt: Date.now() } as Card);
+    const i = pageIndexAt(board, pos.x + (card.w * scale) / 2);
+    const off = pageOffset(board, i);
+    addCard(board.id, board.pages[i].id, { ...card, id, scale, x: Math.round(pos.x - off.x), y: Math.round(pos.y - off.y), createdAt: Date.now() } as Card);
     setSelectedId(id);
     return id;
   };
+  // which page a card is on (cards can be on any page now)
+  const pageOf = (cardId: string) =>
+    (useBoards.getState().boards[board.id]?.pages ?? board.pages).find((p) => p.cards.some((c) => c.id === cardId));
 
-  const createNote = (x: number, y: number) => {
+  const createText = (x: number, y: number) => {
     const s = readableScale();
-    const id = place({ kind: "note", w: 240, text: "", color: NOTE_COLORS[0] }, { x: x - 20 * s, y: y - 20 * s });
+    const st = lastTextStyle();
+    const id = place({ kind: "text", w: 320, text: "", ...st }, { x: x - 6 * s, y: y - st.size * 0.7 * s });
     setEditingId(id);
     setTool("select");
   };
@@ -159,7 +216,9 @@ export default function Editor({ board }: { board: Board }) {
     if (looksLikeImage(url)) return addImage(url, at, { imageUrl: url, accessed: today() });
     const id = place({ kind: "link", w: 280, url, title: "", cite: { pageUrl: url, accessed: today() } }, at);
     const r = await unfurl(url);
-    updateCard(board.id, page.id, id, {
+    const pg = pageOf(id);
+    if (!pg) return;
+    updateCard(board.id, pg.id, id, {
       title: r.title || "",
       cite: { pageUrl: r.url || url, title: r.title, siteName: r.siteName, creator: r.author, published: r.published, accessed: today() },
     });
@@ -173,10 +232,11 @@ export default function Editor({ board }: { board: Board }) {
     const id = addImage(src, at, { imageUrl: src, pageUrl, title: alt || undefined, accessed: today() });
     if (!pageUrl) return;
     const r = await unfurl(pageUrl);
-    const card = useBoards.getState().boards[board.id]?.pages.find((p) => p.id === page.id)?.cards.find((c) => c.id === id);
-    if (!card || card.kind !== "image") return;
+    const pg = pageOf(id);
+    const card = pg?.cards.find((c) => c.id === id);
+    if (!pg || !card || card.kind !== "image") return;
     const c = card.cite ?? { accessed: today() };
-    updateCard(board.id, page.id, id, {
+    updateCard(board.id, pg.id, id, {
       cite: { ...c, pageUrl: r.url || pageUrl, title: c.title || r.title, siteName: c.siteName || r.siteName, creator: c.creator || r.author, published: c.published || r.published },
     });
   };
@@ -210,6 +270,23 @@ export default function Editor({ board }: { board: Board }) {
 
   const openPicker = (urls: string[], title: string, creator?: string) => setPicker({ urls, title, creator });
 
+  // things saved with the Tack Clipper browser extension: laid out in a grid around the center of the view
+  useExtensionClips((clips) => {
+    const scale = readableScale();
+    const cols = Math.min(4, clips.length);
+    const cellW = 340 * scale, cellH = 300 * scale;
+    const c = centerWorld();
+    const x0 = c.x - (cols * cellW) / 2;
+    const y0 = c.y - (Math.ceil(clips.length / cols) * cellH) / 2;
+    clips.forEach((clip, i) => {
+      const at = { x: x0 + (i % cols) * cellW, y: y0 + Math.floor(i / cols) * cellH };
+      if (clip.kind === "image") place({ kind: "image", w: 320, src: clip.src, sourceUrl: clip.cite.pageUrl, cite: clip.cite }, at);
+      if (clip.kind === "link") place({ kind: "link", w: 280, url: clip.url, title: clip.title || "", cite: clip.cite }, at);
+      if (clip.kind === "text") place({ kind: "text", w: 320, text: clip.text, ...lastTextStyle() }, at);
+    });
+    flash(`Added ${clips.length} item${clips.length === 1 ? "" : "s"} from the Tack Clipper.`);
+  });
+
   // ----- paste & drop -----
   useEffect(() => {
     const onPaste = (e: ClipboardEvent) => {
@@ -220,7 +297,7 @@ export default function Editor({ board }: { board: Board }) {
       if (!text) return;
       e.preventDefault();
       if (/^https?:\/\/\S+$/i.test(text)) addLink(text);
-      else { const id = place({ kind: "note", w: 260, text, color: NOTE_COLORS[0] }); setSelectedId(id); }
+      else { const id = place({ kind: "text", w: 320, text, ...lastTextStyle() }); setSelectedId(id); }
     };
     window.addEventListener("paste", onPaste);
     return () => window.removeEventListener("paste", onPaste);
@@ -230,6 +307,18 @@ export default function Editor({ board }: { board: Board }) {
     e.preventDefault();
     const rect = containerRef.current!.getBoundingClientRect();
     const at = { x: (e.clientX - rect.left - viewport.x) / viewport.zoom, y: (e.clientY - rect.top - viewport.y) / viewport.zoom };
+    // an image dragged from Tack's own Reader: it brings its citation
+    const tack = e.dataTransfer.getData("application/x-tack-image");
+    if (tack) {
+      try {
+        const d = JSON.parse(tack) as { src: string; fallback?: string; cite: Citation };
+        if (typeof d.src === "string" && /^(https?:|data:image\/)/.test(d.src)) {
+          const scale = readableScale();
+          place({ kind: "image", w: 320, src: d.src, fallbackSrc: d.fallback, sourceUrl: d.cite?.pageUrl, cite: d.cite }, { x: at.x - 160 * scale, y: at.y - 120 * scale });
+          return flash("Image added with its citation.");
+        }
+      } catch { /* fall through to the normal handling */ }
+    }
     const file = Array.from(e.dataTransfer.files).find((f) => f.type.startsWith("image/"));
     if (file) return addImageFile(file, at);
     // dragging an image from another web page gives us HTML with an <img>
@@ -250,33 +339,44 @@ export default function Editor({ board }: { board: Board }) {
     const down = (e: KeyboardEvent) => {
       const mod = e.metaKey || e.ctrlKey;
       if (mod && e.key === "\\") { e.preventDefault(); setPanelOpen((o) => !o); return; }
+      if (mod && e.key.toLowerCase() === "p") { e.preventDefault(); setShowExport(true); return; } // our print, not the app screen
       if (isTyping(e.target) || document.querySelector(".modal-backdrop")) return;
       if (e.code === "Space") { e.preventDefault(); setSpaceDown(true); return; }
       if (mod && (e.key === "=" || e.key === "+")) { e.preventDefault(); zoomBy(1.25); return; }
       if (mod && e.key === "-") { e.preventDefault(); zoomBy(0.8); return; }
       if (mod && e.key === "0") { e.preventDefault(); zoomBy(1 / viewport.zoom); return; }
+      if (mod && e.key.toLowerCase() === "z") {
+        e.preventDefault();
+        const ok = e.shiftKey ? redo(board.id) : undo(board.id);
+        if (!ok) flash(e.shiftKey ? "Nothing to redo." : "Nothing to undo.");
+        setEditingId(null);
+        return;
+      }
+      if (mod && e.key.toLowerCase() === "y") { e.preventDefault(); if (!redo(board.id)) flash("Nothing to redo."); return; }
+      if (mod && e.key.toLowerCase() === "a") { e.preventDefault(); setSelection(page.cards.map((c) => c.id)); return; }
       if (mod) return;
       if (e.shiftKey && e.key === "!") { fit(); return; }
       // PageUp / PageDown switch pages
       if (e.key === "PageUp" || e.key === "PageDown") {
         e.preventDefault();
-        const i = board.pages.findIndex((p) => p.id === page.id) + (e.key === "PageUp" ? -1 : 1);
-        if (board.pages[i]) setCurrentPage(board.id, board.pages[i].id);
+        const i = pageIndex + (e.key === "PageUp" ? -1 : 1);
+        if (board.pages[i]) goToPage(board.pages[i].id);
         return;
       }
       switch (e.key.toLowerCase()) {
         case "v": setTool("select"); break;
         case "h": setTool("hand"); break;
-        case "n": setTool("note"); break;
+        case "t": setTool("text"); break;
         case "l": e.preventDefault(); setPopUrl(""); setPopover("link"); break;
         case "i": e.preventDefault(); setPopUrl(""); setPopover("image"); break;
-        case "escape": setSelectedId(null); setEditingId(null); setPopover(null); setTool("select"); break;
+        case "escape": setSelection([]); setEditingId(null); setPopover(null); setTool("select"); break;
         case "delete":
         case "backspace":
-          if (selectedId) { removeCard(board.id, page.id, selectedId); setSelectedId(null); }
+          for (const id of selection) { const pg = pageOf(id); if (pg) removeCard(board.id, pg.id, id); }
+          setSelection([]);
           break;
         case "enter":
-          if (selectedId && page.cards.find((c) => c.id === selectedId)?.kind === "note") { e.preventDefault(); setEditingId(selectedId); }
+          if (selectedId && pageOf(selectedId)?.cards.find((c) => c.id === selectedId)?.kind === "text") { e.preventDefault(); setEditingId(selectedId); }
           break;
       }
     };
@@ -315,22 +415,23 @@ export default function Editor({ board }: { board: Board }) {
           tool={tool}
           setTool={setTool}
           spaceDown={spaceDown}
-          selectedId={selectedId}
-          setSelectedId={setSelectedId}
+          selection={selection}
+          setSelection={setSelection}
           editingId={editingId}
           setEditingId={setEditingId}
-          onCreateNote={createNote}
+          onCreateText={createText}
+          onGoToPage={(id) => goToPage(id)}
           containerRef={containerRef}
         />
       </div>
 
-      <LeftPanel board={board} page={page} selectedId={selectedId} citeStyle={citeStyle} setCiteStyle={setCiteStyle} onFindImages={openPicker} />
+      <LeftPanel board={board} page={page} onGoToPage={(id) => goToPage(id)} onExport={() => setShowExport(true)} selectedId={selectedId} selectionCount={selection.length} onDeleteSelection={() => { for (const id of selection) { const pg = pageOf(id); if (pg) removeCard(board.id, pg.id, id); } setSelection([]); }} citeStyle={citeStyle} setCiteStyle={setCiteStyle} onFindImages={openPicker} />
 
       <nav className={`dock ${tight ? "vertical" : ""}`} aria-label="Tools" style={tight ? { left: LEFT_TRAY + 12 } : { left: `calc(50% + ${(LEFT_TRAY - rightSpace) / 2}px)` }}>
         <DockTool t="select" tip="Select  V"><IconSelect /></DockTool>
         <DockTool t="hand" tip="Move around  H or Space"><IconHand /></DockTool>
         <div className="sep" />
-        <DockTool t="note" tip="Note  N"><IconNote /></DockTool>
+        <DockTool t="text" tip="Text  T"><IconText /></DockTool>
         <span className="dock-tip" data-tip="Link  L">
           <button className={`icon-btn ${popover === "link" ? "active" : ""}`} aria-label="Add link" onClick={() => togglePopover("link")}><IconLink /></button>
         </span>
@@ -394,13 +495,14 @@ export default function Editor({ board }: { board: Board }) {
       <PreviewPane
         width={previewW}
         setWidth={setPreviewW}
-        right={panelSpace}
+        onBackToSearch={() => { closePreview(); setPanelOpen(true); }}
         onAddLink={(url) => addLink(url)}
         onAddImages={addPicked}
         onFindImages={openPicker}
       />
 
       {picker && <ImagePicker urls={picker.urls} title={picker.title} creator={picker.creator} onAdd={addPicked} onClose={() => setPicker(null)} />}
+      {showExport && <ExportDialog board={board} page={page} citeStyle={citeStyle} onClose={() => setShowExport(false)} />}
       {showCitations && (
         <CitationsModal
           board={board}
@@ -408,10 +510,7 @@ export default function Editor({ board }: { board: Board }) {
           style={citeStyle}
           setStyle={setCiteStyle}
           onClose={() => setShowCitations(false)}
-          onSelect={(pageId, cardId) => {
-            if (pageId === page.id) setSelectedId(cardId);
-            else { pendingSelect.current = cardId; setCurrentPage(board.id, pageId); }
-          }}
+          onSelect={(pageId, cardId) => goToPage(pageId, cardId)}
         />
       )}
     </div>

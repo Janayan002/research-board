@@ -4,12 +4,12 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { IconBack, IconDuplicate, IconExternal, IconImage, IconLink, IconNote, IconPencil, IconPlus, IconTrash, RESEARCH_ICONS } from "./Icons";
+import { IconDuplicate, IconExternal, IconImage, IconLink, IconPencil, IconPlus, IconText, IconTrash, RESEARCH_ICONS, IconPrint } from "./Icons";
 import CitationEditor from "./CitationEditor";
 import type { CiteStyle } from "@/lib/citation";
-import { NOTE_COLORS } from "@/lib/presets";
+import { TEXT_COLORS, TEXT_FONTS, TEXT_SIZES, rememberTextStyle } from "@/lib/fonts";
 import { useBoards } from "@/lib/store";
-import type { Board, Page } from "@/lib/types";
+import type { Board, Page, TextCard } from "@/lib/types";
 
 type Props = {
   board: Board;
@@ -18,9 +18,13 @@ type Props = {
   citeStyle: CiteStyle;
   setCiteStyle: (s: CiteStyle) => void;
   onFindImages: (urls: string[], title: string, creator?: string) => void;
+  onGoToPage: (pageId: string) => void;
+  onExport: () => void;
+  selectionCount: number;
+  onDeleteSelection: () => void;
 };
 
-export default function LeftPanel({ board, page, selectedId, citeStyle, setCiteStyle, onFindImages }: Props) {
+export default function LeftPanel({ board, page, selectedId, citeStyle, setCiteStyle, onFindImages, onGoToPage, onExport, selectionCount, onDeleteSelection }: Props) {
   const updateCard = useBoards((s) => s.updateCard);
   const removeCard = useBoards((s) => s.removeCard);
   const addCard = useBoards((s) => s.addCard);
@@ -29,7 +33,6 @@ export default function LeftPanel({ board, page, selectedId, citeStyle, setCiteS
   const deletePage = useBoards((s) => s.deletePage);
   const duplicatePage = useBoards((s) => s.duplicatePage);
   const movePage = useBoards((s) => s.movePage);
-  const setCurrentPage = useBoards((s) => s.setCurrentPage);
   const renameBoard = useBoards((s) => s.renameBoard);
 
   const [renaming, setRenaming] = useState<string | null>(null);
@@ -37,29 +40,56 @@ export default function LeftPanel({ board, page, selectedId, citeStyle, setCiteS
   const [dragOver, setDragOver] = useState<number | null>(null);
   const [confirmDel, setConfirmDel] = useState<string | null>(null);
 
-  const sel = page.cards.find((c) => c.id === selectedId) || null;
+  // the selected card can be on any page (all pages share one canvas)
+  const cardPage = board.pages.find((p) => p.cards.some((c) => c.id === selectedId)) ?? page;
+  const sel = cardPage.cards.find((c) => c.id === selectedId) || null;
+  const [pageQuery, setPageQuery] = useState("");
+  const shownPages = board.pages.map((p, i) => ({ p, i })).filter(({ p }) => !pageQuery || p.name.toLowerCase().includes(pageQuery.toLowerCase()));
+  // style a text box, and use the same style for the next one you add
+  const styleText = (patch: Partial<TextCard>) => {
+    if (!sel) return;
+    updateCard(board.id, cardPage.id, sel.id, patch);
+    rememberTextStyle(patch);
+  };
 
   return (
     <aside className="tray left-panel">
       <div className="board-head">
-        <Link href="/" className="icon-btn" title="All boards" aria-label="All boards"><IconBack /></Link>
-        <input className="title-input" value={board.name} aria-label="Board name" onChange={(e) => renameBoard(board.id, e.target.value)} />
+        <Link href="/" className="wordmark sm" title="All boards">Tack</Link>
+        <nav className="pipe-nav sm" aria-label="Board"><Link href="/">Boards</Link></nav>
+        <button className="icon-btn" onClick={onExport} title="Export or print  Ctrl P" aria-label="Export or print"><IconPrint size={17} /></button>
       </div>
-      <div className="muted" style={{ padding: "0 16px 8px", fontSize: 12 }}>{board.frame.w} × {board.frame.h} frame</div>
+      <div className="board-title">
+        <input className="title-input" value={board.name} aria-label="Board name" onChange={(e) => renameBoard(board.id, e.target.value)} />
+        <div className="muted board-size">{board.frame.w} × {board.frame.h} frame</div>
+      </div>
 
       <div className="pages-head">
         <div className="label">Pages</div>
         <button className="icon-btn" style={{ width: 28, height: 28 }} title="Add page" aria-label="Add page" onClick={() => addPage(board.id)}><IconPlus size={16} /></button>
       </div>
 
+      {board.pages.length >= 4 && (
+        <div className="page-find">
+          <input className="input sm" placeholder={`Find a page (${board.pages.length})`} value={pageQuery}
+            onChange={(e) => setPageQuery(e.target.value)}
+            onKeyDown={(e) => {
+              e.stopPropagation();
+              if (e.key === "Enter" && shownPages[0]) onGoToPage(shownPages[0].p.id);
+              if (e.key === "Escape") setPageQuery("");
+            }} />
+        </div>
+      )}
+
       <div className="panel-scroll">
-        {board.pages.map((p, i) => {
+        {pageQuery && shownPages.length === 0 && <div className="muted" style={{ padding: "6px 9px", fontSize: 12 }}>No page called “{pageQuery}”.</div>}
+        {shownPages.map(({ p, i }) => {
           const active = p.id === page.id;
           return (
             <div
               key={p.id}
               className={`page-item ${active ? "selected" : ""} ${dragOver === i && dragFrom !== i ? "drop-target" : ""}`}
-              onClick={() => setCurrentPage(board.id, p.id)}
+              onClick={() => onGoToPage(p.id)}
               onDoubleClick={() => setRenaming(p.id)}
               draggable={renaming !== p.id}
               onDragStart={(e) => { setDragFrom(i); e.dataTransfer.setData("application/x-page", String(i)); e.dataTransfer.effectAllowed = "move"; }}
@@ -107,39 +137,69 @@ export default function LeftPanel({ board, page, selectedId, citeStyle, setCiteS
           );
         })}
         <div className="muted" style={{ padding: "10px 9px", fontSize: 12, lineHeight: 1.5 }}>
-          Double-click a page to rename it, drag to reorder. <span className="kbd">PgUp</span> <span className="kbd">PgDn</span> switch pages.
+          Click a page to jump to it. Double-click to rename, drag to reorder. <span className="kbd">PgUp</span> <span className="kbd">PgDn</span> next / previous page.
         </div>
       </div>
+
+      {selectionCount > 1 && (
+        <div className="selected-section">
+          <div className="selected-title">{selectionCount} items selected</div>
+          <div className="muted" style={{ fontSize: 12, lineHeight: 1.5, margin: "0 0 10px" }}>
+            Drag any of them to move them together, even onto another page. Shift-click to add or remove one.
+          </div>
+          <button className="btn small" onClick={onDeleteSelection}><IconTrash size={13} /> Delete {selectionCount} items</button>
+        </div>
+      )}
 
       {sel && (
         <div className="selected-section">
           <div className="selected-title">
-            {sel.kind === "note" && <><IconNote size={16} /> Note</>}
+            {sel.kind === "text" && <><IconText size={16} /> Text</>}
             {sel.kind === "link" && <><IconLink size={16} /> Link</>}
             {sel.kind === "image" && <><IconImage size={16} /> Image</>}
             {sel.kind === "research" && (() => { const I = RESEARCH_ICONS[sel.category] ?? RESEARCH_ICONS.any; return <><I size={16} /> {sel.name}</>; })()}
           </div>
-          {sel.kind === "note" && (
-            <div className="color-row">
-              {NOTE_COLORS.map((col) => (
-                <div key={col} className={`swatch ${sel.color === col ? "on" : ""}`} style={{ background: col }}
-                  onClick={() => updateCard(board.id, page.id, sel.id, { color: col })} />
-              ))}
-            </div>
+          {sel.kind === "text" && (
+            <>
+              <div className="label">Font</div>
+              <div className="font-list" role="listbox" aria-label="Font">
+                {TEXT_FONTS.map((f) => (
+                  <button key={f.name} role="option" aria-selected={sel.font === f.name}
+                    className={`font-opt ${sel.font === f.name ? "on" : ""}`} style={{ fontFamily: f.family }}
+                    onClick={() => styleText({ font: f.name })}>
+                    {f.name}<small>{f.kind}</small>
+                  </button>
+                ))}
+              </div>
+              <div className="text-row">
+                <select className="input sm" aria-label="Font size" value={sel.size}
+                  onChange={(e) => styleText({ size: Number(e.target.value) })}>
+                  {[...new Set([...TEXT_SIZES, sel.size])].sort((a, b) => a - b).map((n) => <option key={n} value={n}>{n} px</option>)}
+                </select>
+                <button className={`icon-btn bold-btn ${sel.bold ? "active" : ""}`} style={{ width: 32, height: 32 }}
+                  aria-label="Bold" aria-pressed={!!sel.bold} onClick={() => styleText({ bold: !sel.bold })}>B</button>
+              </div>
+              <div className="color-row">
+                {TEXT_COLORS.map((col) => (
+                  <div key={col} className={`swatch ${sel.color === col ? "on" : ""}`} style={{ background: col }} title={col}
+                    onClick={() => styleText({ color: col })} />
+                ))}
+              </div>
+            </>
           )}
           {sel.kind === "image" && (
             <>
               <input className="input sm" placeholder="Your caption / note" value={sel.caption || ""}
-                onChange={(e) => updateCard(board.id, page.id, sel.id, { caption: e.target.value })} />
+                onChange={(e) => updateCard(board.id, cardPage.id, sel.id, { caption: e.target.value })} />
               <label className="chk" style={{ fontSize: 12 }}>
                 <input type="checkbox" checked={sel.showCredit !== false}
-                  onChange={(e) => updateCard(board.id, page.id, sel.id, { showCredit: e.target.checked })} />
+                  onChange={(e) => updateCard(board.id, cardPage.id, sel.id, { showCredit: e.target.checked })} />
                 Show credit on canvas
               </label>
               <CitationEditor
                 key={sel.id}
-                cite={sel.cite ?? { imageUrl: sel.src.startsWith("data:") ? undefined : sel.src, pageUrl: sel.sourceUrl, accessed: new Date(sel.createdAt).toISOString().slice(0, 10) }}
-                onChange={(cite) => updateCard(board.id, page.id, sel.id, { cite })}
+                cite={sel.cite ?? { imageUrl: sel.src.startsWith("data:") ? undefined : sel.src, pageUrl: sel.sourceUrl, accessed: new Date(sel.createdAt).toLocaleDateString("en-CA") }}
+                onChange={(cite) => updateCard(board.id, cardPage.id, sel.id, { cite })}
                 style={citeStyle}
                 setStyle={setCiteStyle}
               />
@@ -148,14 +208,14 @@ export default function LeftPanel({ board, page, selectedId, citeStyle, setCiteS
           {sel.kind === "link" && (
             <>
               <input className="input sm" placeholder="Title" value={sel.title}
-                onChange={(e) => updateCard(board.id, page.id, sel.id, { title: e.target.value })} />
+                onChange={(e) => updateCard(board.id, cardPage.id, sel.id, { title: e.target.value })} />
               <button className="btn small" onClick={() => onFindImages([sel.url], `Images from ${sel.title || sel.url}`)}>
                 <IconImage size={12} /> Pull images from this page
               </button>
               <CitationEditor
                 key={sel.id}
-                cite={sel.cite ?? { pageUrl: sel.url, title: sel.title, accessed: new Date(sel.createdAt).toISOString().slice(0, 10) }}
-                onChange={(cite) => updateCard(board.id, page.id, sel.id, { cite })}
+                cite={sel.cite ?? { pageUrl: sel.url, title: sel.title, accessed: new Date(sel.createdAt).toLocaleDateString("en-CA") }}
+                onChange={(cite) => updateCard(board.id, cardPage.id, sel.id, { cite })}
                 style={citeStyle}
                 setStyle={setCiteStyle}
               />
@@ -172,9 +232,9 @@ export default function LeftPanel({ board, page, selectedId, citeStyle, setCiteS
           )}
           <div className="size-row">
             <span className="muted" style={{ fontSize: 12, flex: 1 }}>Size</span>
-            <button className="icon-btn" style={{ width: 28, height: 28 }} aria-label="Smaller" onClick={() => updateCard(board.id, page.id, sel.id, { scale: Math.max(0.25, (sel.scale ?? 1) / 1.25) })}>−</button>
+            <button className="icon-btn" style={{ width: 28, height: 28 }} aria-label="Smaller" onClick={() => updateCard(board.id, cardPage.id, sel.id, { scale: Math.max(0.25, (sel.scale ?? 1) / 1.25) })}>−</button>
             <span className="val">{Math.round((sel.scale ?? 1) * 100)}%</span>
-            <button className="icon-btn" style={{ width: 28, height: 28 }} aria-label="Larger" onClick={() => updateCard(board.id, page.id, sel.id, { scale: Math.min(8, (sel.scale ?? 1) * 1.25) })}>+</button>
+            <button className="icon-btn" style={{ width: 28, height: 28 }} aria-label="Larger" onClick={() => updateCard(board.id, cardPage.id, sel.id, { scale: Math.min(8, (sel.scale ?? 1) * 1.25) })}>+</button>
           </div>
           {board.pages.length > 1 && (
             <select
@@ -184,11 +244,11 @@ export default function LeftPanel({ board, page, selectedId, citeStyle, setCiteS
                 const to = e.target.value;
                 if (!to) return;
                 addCard(board.id, to, sel);
-                removeCard(board.id, page.id, sel.id);
+                removeCard(board.id, cardPage.id, sel.id);
               }}
             >
               <option value="">Move to page…</option>
-              {board.pages.filter((p) => p.id !== page.id).map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+              {board.pages.filter((p) => p.id !== cardPage.id).map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
             </select>
           )}
           <div style={{ display: "flex", gap: 6 }}>
@@ -197,7 +257,7 @@ export default function LeftPanel({ board, page, selectedId, citeStyle, setCiteS
                 <IconExternal size={12} /> Open
               </a>
             )}
-            <button className="btn small" onClick={() => removeCard(board.id, page.id, sel.id)}>
+            <button className="btn small" onClick={() => removeCard(board.id, cardPage.id, sel.id)}>
               <IconTrash size={12} /> Delete
             </button>
           </div>

@@ -1,0 +1,28 @@
+:root { --ink: #1e1e1e; --ink-2: #5f5f5f; --line: #e3e3e3; --bg: #fff; --soft: #f4f4f4; }
+* { box-sizing: border-box; }
+body { margin: 0; width: 360px; font: 13px/1.4 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; color: var(--ink); background: var(--bg); }
+header { display: flex; align-items: center; gap: 9px; padding: 12px 14px 8px; font-size: 14px; }
+header img { border-radius: 6px; }
+.page { margin: 0 14px; padding: 9px 11px; background: var(--soft); border-radius: 9px; }
+.pt { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ps { color: var(--ink-2); font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.actions { display: flex; gap: 8px; padding: 10px 14px; }
+.actions button { flex: 1; }
+button { height: 32px; padding: 0 12px; border-radius: 8px; border: 1px solid var(--line); background: #fff; color: var(--ink); font: inherit; font-weight: 500; cursor: pointer; }
+button:hover { border-color: #c9c9c9; }
+button.primary { background: var(--ink); border-color: var(--ink); color: #fff; }
+button.primary:hover { background: #000; }
+button:disabled { opacity: 0.45; cursor: default; }
+button.small { height: 26px; padding: 0 9px; font-size: 12px; white-space: nowrap; flex-shrink: 0; }
+button.wide { width: calc(100% - 28px); margin: 10px 14px 4px; }
+.row { display: flex; align-items: center; justify-content: space-between; padding: 2px 14px 8px; }
+.muted { color: var(--ink-2); font-size: 12px; }
+.grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; padding: 0 14px; max-height: 330px; overflow: auto; }
+.cell { position: relative; aspect-ratio: 1; border-radius: 7px; overflow: hidden; background: var(--soft); border: 2px solid transparent; cursor: pointer; padding: 0; height: auto; }
+.cell img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.cell.on { border-color: var(--ink); }
+.cell .tick { position: absolute; top: 4px; right: 4px; width: 18px; height: 18px; border-radius: 50%; background: rgba(255,255,255,0.9); border: 1px solid var(--line); font-size: 11px; display: grid; place-items: center; }
+.cell.on .tick { background: var(--ink); color: #fff; border-color: var(--ink); }
+.msg { margin: 8px 14px 0; padding: 8px 10px; border-radius: 8px; background: #eef8f0; color: #1a6b32; font-size: 12.5px; }
+.msg.bad { background: #fdeeee; color: #a12a2a; }
+footer { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 10px 14px 12px; margin-top: 10px; border-top: 1px solid var(--line); }

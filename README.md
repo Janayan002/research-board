@@ -1,4 +1,4 @@
-# Research Board
+# Tack
 
 A Figma-style canvas for visual research, with an AI research assistant on the right.
 
@@ -11,7 +11,7 @@ Made for **visual research**. Pick a frame size, then:
 - **Preview pages next to your board:** click any search result or link to open it in a side pane. Sites that allow it show live; others show a clean **reader view** where clicking an image adds it to your board with its citation. **Open** sends it to your browser (or Cmd/Ctrl-click any link).
 - **Pages:** split a board into pages (e.g. "Artists", "Museums", "Materials").
 
-Built with Next.js, React, Zustand and the Claude API with its built-in web search tool. Light "sketchbook" theme: light grey canvas, white pages and panels, taped-down images and notes. Fonts: Geist, plus Caveat for handwritten notes (bundled, no external requests).
+Built with Next.js, React, Zustand and the Claude API with its built-in web search tool. Black, white and PANTONE 19-3838 TCX Rhodonite (#302c4d): white pages and panels on a light grey canvas, square corners, hairlines, a heavy tight wordmark and pipe-separated navigation. UI font: Archivo (bundled), a free stand-in for the Walter Neue / Neue Haas grotesks. The Text tool offers a set of basic Google Fonts (loaded from fonts.googleapis.com).
 
 ---
 
@@ -48,7 +48,7 @@ Push to GitHub → import the repo in Vercel → add `ANTHROPIC_API_KEY` under P
 |---|---|
 | Pan | Scroll, hold **Space** and drag, or use the Hand tool (**H**) |
 | Zoom | **Ctrl/Cmd + scroll**, pinch, or **Ctrl/Cmd +/−**. **Shift+1** fits the frame |
-| Add a note | **N**, then click the canvas. Double-click a note (or press Enter) to edit |
+| Add text | **T**, then click the canvas and type. Double-click text (or press Enter) to edit; pick font, size, weight and color in the left panel |
 | Add a link | **L**, or paste / drag a link onto the canvas |
 | Add images from a web page | **I**, paste the page link, pick images. Or click **Images** on a research result, or **Find images** on a card |
 | Drag an image from another site | Drop it on the canvas: it's cited automatically (page details are filled in when the browser passes the page link) |
@@ -94,7 +94,8 @@ lib/
   search.ts                Search engine adapters (Brave, Claude fallback, mock)
   reader.ts                Reader view: cleans a page down to text + images
   preview.ts               Which page is open in the preview pane
-  presets.ts               Frame sizes and note colors
+  fonts.ts                 Google Fonts for the Text tool
+  presets.ts               Frame sizes
   web.ts                   Fetching pages safely for previews
   mock.ts                  Fake data for mock mode
 ```

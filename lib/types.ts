@@ -24,7 +24,8 @@ type BaseCard = {
   createdAt: number;
 };
 
-export type NoteCard = BaseCard & { kind: "note"; text: string; color: string };
+// Free text typed on the canvas (T), in one of the Google Fonts from lib/fonts.ts
+export type TextCard = BaseCard & { kind: "text"; text: string; font: string; size: number; color: string; bold?: boolean };
 export type LinkCard = BaseCard & { kind: "link"; url: string; title: string; cite?: Citation };
 export type ImageCard = BaseCard & {
   kind: "image";
@@ -47,7 +48,7 @@ export type ResearchCard = BaseCard & {
   sources: Source[];
 };
 
-export type Card = NoteCard | LinkCard | ImageCard | ResearchCard;
+export type Card = TextCard | LinkCard | ImageCard | ResearchCard;
 export type CardKind = Card["kind"];
 
 export type CandidateStatus = "new" | "kept" | "skipped" | "added";
@@ -84,12 +85,17 @@ export type Page = {
   viewport?: Viewport;
 };
 
+// Folders on the home screen; a board sits in at most one
+export type Folder = { id: string; name: string; createdAt: number };
+
 export type Board = {
   id: string;
   name: string;
+  folderId?: string; // undefined = not in a folder
   frame: Frame;
   pages: Page[];
   currentPageId?: string;
+  viewport?: Viewport; // where you were looking on the canvas (all pages share one canvas)
   research: ResearchSession[]; // newest first, shared across pages
   createdAt: number;
   updatedAt: number;

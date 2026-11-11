@@ -10,6 +10,7 @@ import { uid, useBoards } from "@/lib/store";
 import { RESEARCH_TYPES, defaultSectionIds, researchType } from "@/lib/researchTypes";
 import type { Board, Candidate, Card, GeneratedCard, ResearchSession } from "@/lib/types";
 import { previewClick } from "@/lib/preview";
+import { apiFetch } from "@/lib/aiKeys";
 
 // a card before it has an id/position (Omit that works across each card kind)
 type DistributiveOmit<T, K extends keyof any> = T extends any ? Omit<T, K> : never;
@@ -23,7 +24,7 @@ type Props = {
 };
 
 async function postJson<T>(url: string, body: unknown): Promise<T> {
-  const res = await fetch(url, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
+  const res = await apiFetch(url, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
   const data = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(data.error || `Request failed (${res.status})`);
   return data as T;

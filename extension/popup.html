@@ -1,0 +1,41 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <link rel="stylesheet" href="popup.css" />
+</head>
+<body>
+  <header>
+    <img src="icons/32.png" width="22" height="22" alt="" />
+    <b>Save to Tack</b>
+  </header>
+
+  <section id="page" class="page">
+    <div class="pt" id="pt">…</div>
+    <div class="ps" id="ps"></div>
+  </section>
+
+  <div class="actions">
+    <button id="save-page">Save page as link</button>
+    <button id="pick" class="primary">Pick images</button>
+  </div>
+
+  <section id="images" hidden>
+    <div class="row">
+      <span id="count" class="muted"></span>
+      <button id="all" class="small">Select all</button>
+    </div>
+    <div id="grid" class="grid"></div>
+    <button id="add" class="primary wide" disabled>Add images</button>
+  </section>
+
+  <div id="msg" class="msg" hidden></div>
+
+  <footer>
+    <span id="queue" class="muted"></span>
+    <button id="open" class="small">Open Tack</button>
+  </footer>
+
+  <script type="module" src="popup.js"></script>
+</body>
+</html>

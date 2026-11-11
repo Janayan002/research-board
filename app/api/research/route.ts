@@ -2,12 +2,12 @@
 // → { candidates: [{ name, why, meta, sourceUrl, sourceTitle }], mock?, searchesUsed? }
 
 import { NextResponse } from "next/server";
-import { extractJson, friendlyError, hasApiKey, maxSearches, runWithSearch } from "@/lib/ai";
+import { credsFrom, extractJson, friendlyError, hasApiKey, maxSearches, mockAllowed, needsKeyError, pickModel, runWithSearch } from "@/lib/ai";
 import { mockCandidates } from "@/lib/mock";
 import { researchType } from "@/lib/researchTypes";
 
 export const runtime = "nodejs";
-export const maxDuration = 60;
+export const maxDuration = 300; // bigger models with several searches can take a while
 
 type Out = { candidates: { name: string; why: string; meta?: string; match?: string; sourceUrl?: string; sourceTitle?: string }[] };
 
@@ -19,7 +19,9 @@ export async function POST(req: Request) {
   const exclude: string[] = Array.isArray(body.exclude) ? body.exclude.map(String).slice(0, 50) : [];
   if (!query) return NextResponse.json({ error: "Type what you're looking for." }, { status: 400 });
 
-  if (!hasApiKey()) {
+  const creds = credsFrom(req);
+  if (!hasApiKey(creds)) {
+    if (!mockAllowed()) return NextResponse.json(needsKeyError(), { status: 401 });
     await new Promise((r) => setTimeout(r, 700)); // feel like a real request
     return NextResponse.json({ candidates: mockCandidates(query, rt, count, exclude), mock: true });
   }
@@ -45,7 +47,8 @@ Reply with ONLY a JSON object, no prose, in exactly this shape:
       `Find up to ${count} ${rt.label.toLowerCase()} for this research request:\n"""${query}"""` +
       (exclude.length ? `\n\nAlready found — do NOT include these again: ${exclude.join("; ")}` : "");
     const r = await runWithSearch({
-      model: process.env.RESEARCH_MODEL || "claude-haiku-5-5",
+      apiKey: creds.anthropicKey!,
+      model: pickModel(creds, "RESEARCH_MODEL"),
       system,
       prompt,
       searches: maxSearches(),

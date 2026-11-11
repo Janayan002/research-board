@@ -1,16 +1,17 @@
 {
-  "name": "research-board",
+  "name": "tack",
   "version": "0.1.0",
   "private": true,
   "description": "A Figma-style research canvas with an AI research assistant (Claude + web search).",
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
-    "start": "next start"
+    "build": "npm run zip-extension && next build",
+    "start": "next start",
+    "zip-extension": "mkdir -p public && rm -f public/tack-extension.zip && cd extension && zip -qr ../public/tack-extension.zip . -x '.*'"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^1.6.0",
-    "@fontsource-variable/geist": "^5.3.0",
+    "@fontsource-variable/archivo": "^5.3.0",
     "@fontsource/caveat": "^5.3.0",
     "@mozilla/readability": "^0.6.0",
     "linkedom": "^0.18.15",

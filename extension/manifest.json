@@ -1,0 +1,18 @@
+{
+  "manifest_version": 3,
+  "name": "Tack Clipper",
+  "version": "1.0.0",
+  "description": "Save images, links and text from any page to your Tack board, with citations.",
+  "icons": { "16": "icons/16.png", "32": "icons/32.png", "48": "icons/48.png", "128": "icons/128.png" },
+  "action": { "default_popup": "popup.html", "default_title": "Save to Tack" },
+  "background": { "service_worker": "background.js", "type": "module" },
+  "permissions": ["contextMenus", "activeTab", "scripting", "storage"],
+  "host_permissions": ["https://*.cdninstagram.com/*", "https://*.fbcdn.net/*"],
+  "content_scripts": [
+    {
+      "matches": ["http://localhost:3000/*", "https://tack-eta.vercel.app/*"],
+      "js": ["bridge.js"],
+      "run_at": "document_idle"
+    }
+  ]
+}

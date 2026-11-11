@@ -8,6 +8,8 @@ import ResearchPanel, { type NewCard } from "./ResearchPanel";
 import type { PickedImage } from "./ImagePicker";
 import type { Board, GeneratedCard } from "@/lib/types";
 import { previewClick } from "@/lib/preview";
+import { apiFetch } from "@/lib/aiKeys";
+import { ConnectAIButton } from "./ConnectAI";
 
 type WebResult = { title: string; url: string; snippet?: string; site?: string; favicon?: string; thumb?: string; age?: string };
 type ImageResult = { src: string; thumb?: string; title?: string; pageUrl?: string; site?: string };
@@ -26,12 +28,12 @@ type Props = {
 
 const host = (u?: string) => { try { return new URL(u || "").hostname.replace(/^www\./, ""); } catch { return u || ""; } };
 const path = (u: string) => { try { const x = new URL(u); return (x.hostname.replace(/^www\./, "") + x.pathname).replace(/\/$/, ""); } catch { return u; } };
-const today = () => new Date().toISOString().slice(0, 10);
+const today = () => new Date().toLocaleDateString("en-CA");
 
 const ENGINE_NOTE: Record<Engine, string> = {
   brave: "Results from Brave Search",
   claude: "Results from Claude web search (slower). A working Brave key makes this faster.",
-  mock: "Mock results. Add a Brave or Claude API key in .env.local for real results.",
+  mock: "Mock results (development only). Connect AI for real results.",
 };
 
 export default function SearchPanel({ board, open, onClose, onAddCard, onAddLink, onAddImages, onFindImages }: Props) {
@@ -54,7 +56,7 @@ export default function SearchPanel({ board, open, onClose, onAddCard, onAddLink
     setLoading(page ? "more" : kind);
     setError(null);
     try {
-      const res = await fetch(`/api/search?type=${kind}&page=${page}&q=${encodeURIComponent(q)}`);
+      const res = await apiFetch(`/api/search?type=${kind}&page=${page}&q=${encodeURIComponent(q)}`);
       const d = await res.json();
       if (!res.ok) throw new Error(d.error || "Search failed.");
       if (kind === "web") {
@@ -91,7 +93,7 @@ export default function SearchPanel({ board, open, onClose, onAddCard, onAddLink
     setCarding(r.url);
     setError(null);
     try {
-      const res = await fetch("/api/card", {
+      const res = await apiFetch("/api/card", {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ name: r.title, type: "any", query, sections: ["summary", "facts"], hintUrl: r.url }),
@@ -125,6 +127,7 @@ export default function SearchPanel({ board, open, onClose, onAddCard, onAddLink
     <aside className={`tray right-panel ${open ? "" : "collapsed"}`} aria-hidden={!open}>
       <div className="rp-head">
         <div className="t"><IconSearch size={17} /> Search</div>
+        <ConnectAIButton />
         <button className="icon-btn" onClick={onClose} title="Hide panel  Ctrl \" aria-label="Hide search panel"><IconClose size={16} /></button>
       </div>
 

@@ -15,7 +15,10 @@ const MLA_MONTHS = ["Jan.", "Feb.", "Mar.", "Apr.", "May", "June", "July", "Aug.
 
 function parseDate(s?: string): Date | null {
   if (!s) return null;
-  const d = new Date(s);
+  // a bare "2026-11-09" means that day where you are (new Date() would read it as UTC midnight,
+  // which is the day before in the Americas)
+  const m = s.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  const d = m ? new Date(+m[1], +m[2] - 1, +m[3]) : new Date(s);
   return isNaN(d.getTime()) ? null : d;
 }
 const isoDay = (s?: string) => /^\d{4}-\d{2}-\d{2}/.test(s || "");
@@ -86,7 +89,7 @@ export function creditLine(c?: Citation): string {
 // Every citation on a page: images, links and the sources of research cards
 export function collectCitations(cards: Card[]): { cardId: string; label: string; cite: Citation }[] {
   const out: { cardId: string; label: string; cite: Citation }[] = [];
-  const day = (t: number) => new Date(t).toISOString().slice(0, 10);
+  const day = (t: number) => new Date(t).toLocaleDateString("en-CA");
   const seen = new Set<string>();
   const push = (cardId: string, label: string, cite: Citation) => {
     const key = (cite.pageUrl || cite.imageUrl || "") + "|" + (cite.title || "");

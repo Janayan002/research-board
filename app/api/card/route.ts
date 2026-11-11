@@ -2,14 +2,14 @@
 // → GeneratedCard { name, subtitle, website, image, sections: [{label, text}], sources: [{title, url}] }
 
 import { NextResponse } from "next/server";
-import { extractJson, friendlyError, hasApiKey, maxSearches, runWithSearch } from "@/lib/ai";
+import { credsFrom, extractJson, friendlyError, hasApiKey, maxSearches, mockAllowed, needsKeyError, pickModel, runWithSearch } from "@/lib/ai";
 import { mockCard } from "@/lib/mock";
 import { researchType, type SectionDef } from "@/lib/researchTypes";
 import { firstImage } from "@/lib/web";
 import type { GeneratedCard } from "@/lib/types";
 
 export const runtime = "nodejs";
-export const maxDuration = 60;
+export const maxDuration = 300; // bigger models with several searches can take a while
 
 type Out = {
   name?: string;
@@ -29,7 +29,9 @@ export async function POST(req: Request) {
   const defs = ids.map((id) => rt.sections.find((s) => s.id === id)).filter(Boolean) as SectionDef[];
   if (!name) return NextResponse.json({ error: "Missing name." }, { status: 400 });
 
-  if (!hasApiKey()) {
+  const creds = credsFrom(req);
+  if (!hasApiKey(creds)) {
+    if (!mockAllowed()) return NextResponse.json(needsKeyError(), { status: 401 });
     await new Promise((r) => setTimeout(r, 900));
     return NextResponse.json(mockCard(name, rt, defs.map((d) => d.label)));
   }
@@ -50,7 +52,8 @@ ${defs.map((d) => `- "${d.label}": ${d.instruction}`).join("\n")}
 
   try {
     const r = await runWithSearch({
-      model: process.env.CARD_MODEL || "claude-haiku-5-5",
+      apiKey: creds.anthropicKey!,
+      model: pickModel(creds, "CARD_MODEL"),
       system,
       prompt,
       searches: Math.min(3, maxSearches()),

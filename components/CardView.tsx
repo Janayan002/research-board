@@ -5,6 +5,7 @@ import type { Card, Citation } from "@/lib/types";
 import { creditLine } from "@/lib/citation";
 import { previewClick } from "@/lib/preview";
 import { researchType } from "@/lib/researchTypes";
+import { fontFamily } from "@/lib/fonts";
 import { RESEARCH_ICONS } from "./Icons";
 
 const capitalize = (t: string) => t.charAt(0).toUpperCase() + t.slice(1);
@@ -35,11 +36,9 @@ export default function CardView(p: Props) {
   const scale = card.scale ?? 1;
   const style: React.CSSProperties = {
     left: x, top: y, width: w,
-    background: card.kind === "note" ? card.color : undefined,
+    ...(card.kind === "text" ? { fontFamily: fontFamily(card.font), fontSize: card.size, color: card.color, fontWeight: card.bold ? 700 : 400 } : {}),
     transform: scale !== 1 ? `scale(${scale})` : undefined,
     transformOrigin: "0 0",
-    // each card's tape sits at a slightly different angle, like it was stuck down by hand
-    ["--tilt" as string]: `${((card.id.charCodeAt(0) + card.id.charCodeAt(1)) % 7) - 3}deg`,
   };
 
   return (
@@ -50,9 +49,9 @@ export default function CardView(p: Props) {
       onPointerDown={(e) => p.onPointerDown(e, card.id)}
       onDoubleClick={(e) => { e.stopPropagation(); p.onDoubleClick(card.id); }}
     >
-      {card.kind === "note" && (editing
-        ? <NoteEditor text={card.text} onChange={(t) => p.onTextChange(card.id, t)} onDone={p.onStopEditing} />
-        : card.text ? card.text : <span className="placeholder">Double-click to write</span>)}
+      {card.kind === "text" && (editing
+        ? <TextEditor text={card.text} onChange={(t) => p.onTextChange(card.id, t)} onDone={p.onStopEditing} />
+        : card.text ? card.text : <span className="placeholder">Double-click to type</span>)}
 
       {card.kind === "link" && (
         <>
@@ -105,7 +104,7 @@ export default function CardView(p: Props) {
   );
 }
 
-function NoteEditor({ text, onChange, onDone }: { text: string; onChange: (t: string) => void; onDone: () => void }) {
+function TextEditor({ text, onChange, onDone }: { text: string; onChange: (t: string) => void; onDone: () => void }) {
   const ref = useRef<HTMLTextAreaElement>(null);
   const grow = () => {
     const el = ref.current;
@@ -128,7 +127,7 @@ function NoteEditor({ text, onChange, onDone }: { text: string; onChange: (t: st
     <textarea
       ref={ref}
       value={text}
-      placeholder="Write a note…"
+      placeholder="Type something…"
       onChange={(e) => { onChange(e.target.value); grow(); }}
       onPointerDown={(e) => e.stopPropagation()}
       onBlur={onDone}

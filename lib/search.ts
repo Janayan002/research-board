@@ -2,7 +2,7 @@
 // Uses the Brave Search API when BRAVE_API_KEY is set (fast, Google-like results).
 // Otherwise falls back to Claude's web search (slower), then to mock data.
 
-import { extractJson, hasApiKey, runWithSearch } from "./ai";
+import { extractJson, hasApiKey, mockAllowed, NEEDS_KEY, pickModel, runWithSearch, type Creds } from "./ai";
 import { pageImages } from "./web";
 
 export type WebResult = { title: string; url: string; snippet?: string; site?: string; favicon?: string; thumb?: string; age?: string };
@@ -10,24 +10,28 @@ export type ImageResult = { src: string; thumb?: string; title?: string; pageUrl
 export type Engine = "brave" | "claude" | "mock";
 
 const BRAVE = process.env.BRAVE_BASE_URL || "https://api.search.brave.com/res/v1"; // override only for testing
-export const hasBrave = () => Boolean(process.env.BRAVE_API_KEY);
+const hasBrave = (c: Creds) => Boolean(c.braveKey);
+
+function noKeys(): never {
+  const e = new Error("Connect your Claude API key (or a Brave Search key) to search the web.") as Error & { code: string };
+  e.code = NEEDS_KEY;
+  throw e;
+}
 
 const clean = (s?: string) =>
   (s || "").replace(/<[^>]+>/g, "").replace(/&amp;/g, "&").replace(/&quot;/g, '"').replace(/&#39;|&#x27;/g, "'")
     .replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/\s+/g, " ").trim();
 const host = (u?: string) => { try { return new URL(u || "").hostname.replace(/^www\./, ""); } catch { return ""; } };
 
-// keys pasted with quotes or spaces are a common mistake — clean them up
-const braveKey = () => (process.env.BRAVE_API_KEY || "").trim().replace(/^["']|["']$/g, "");
 
 export class BraveError extends Error {
   constructor(message: string, public code?: string) { super(message); }
 }
 
-async function brave(path: string, params: Record<string, string | number>) {
+async function brave(key: string, path: string, params: Record<string, string | number>) {
   const qs = new URLSearchParams(Object.entries(params).map(([k, v]) => [k, String(v)]));
   const res = await fetch(`${BRAVE}/${path}?${qs}`, {
-    headers: { Accept: "application/json", "X-Subscription-Token": braveKey() },
+    headers: { Accept: "application/json", "X-Subscription-Token": key },
   });
   if (res.ok) return res.json();
   // Brave explains errors in the body, e.g. {"error":{"code":"SUBSCRIPTION_TOKEN_INVALID","detail":"..."}}
@@ -36,7 +40,7 @@ async function brave(path: string, params: Record<string, string | number>) {
   const detail: string | undefined = body?.error?.detail;
   console.error(`[brave] ${res.status} ${code ?? ""} ${detail ?? ""}`);
   if (code === "SUBSCRIPTION_TOKEN_INVALID" || res.status === 401 || res.status === 403)
-    throw new BraveError("Brave didn’t accept your BRAVE_API_KEY. Check that you copied the whole key (no quotes or spaces) and that it’s from an active Search plan.", "auth");
+    throw new BraveError("Brave didn’t accept your Brave Search key. Check that you copied the whole key and that it’s from an active Search plan.", "auth");
   if (res.status === 429) throw new BraveError("Brave search limit reached for now. Wait a moment and try again.", "rate");
   throw new BraveError(`Brave search failed (${res.status}${detail ? `: ${detail}` : ""}).`, code);
 }
@@ -44,24 +48,25 @@ async function brave(path: string, params: Record<string, string | number>) {
 // ---------- web ----------
 type WebOut = { results: WebResult[]; engine: Engine; more: boolean; warning?: string };
 
-export async function searchWeb(q: string, page: number): Promise<WebOut> {
-  if (hasBrave()) {
+export async function searchWeb(q: string, page: number, c: Creds): Promise<WebOut> {
+  if (hasBrave(c)) {
     try {
-      return await braveWeb(q, page);
+      return await braveWeb(q, page, c);
     } catch (e) {
       // keep searching with Claude if we can, and tell the user what went wrong with Brave
-      if (!hasApiKey()) throw e;
-      const out = await claudeWeb(q, page);
+      if (!hasApiKey(c)) throw e;
+      const out = await claudeWeb(q, page, c);
       return { ...out, warning: (e as Error).message + " Using Claude search for now." };
     }
   }
-  if (hasApiKey()) return claudeWeb(q, page);
+  if (hasApiKey(c)) return claudeWeb(q, page, c);
+  if (!mockAllowed()) noKeys();
   return mockWeb(q, page);
 }
 
-async function braveWeb(q: string, page: number): Promise<WebOut> {
+async function braveWeb(q: string, page: number, c: Creds): Promise<WebOut> {
   {
-    const d = await brave("web/search", { q, count: 20, offset: Math.min(page, 9) });
+    const d = await brave(c.braveKey!, "web/search", { q, count: 20, offset: Math.min(page, 9) });
     const results: WebResult[] = (d.web?.results || []).map((r: any) => ({
       title: clean(r.title),
       url: r.url,
@@ -75,10 +80,11 @@ async function braveWeb(q: string, page: number): Promise<WebOut> {
   }
 }
 
-async function claudeWeb(q: string, page: number): Promise<WebOut> {
+async function claudeWeb(q: string, page: number, c: Creds): Promise<WebOut> {
   {
     const r = await runWithSearch({
-      model: process.env.RESEARCH_MODEL || "claude-haiku-5-5",
+      apiKey: c.anthropicKey!,
+      model: pickModel(c, "RESEARCH_MODEL"),
       system: `You are a search engine. Run ONE web search for the user's query exactly as typed${page ? ` (this is results page ${page + 1}, so look for different pages than the most obvious ones)` : ""}.
 Then list the pages you found, in the order they ranked, as ONLY JSON:
 {"results":[{"title":"page title","url":"https://...","snippet":"one or two sentences describing what's on the page"}]}
@@ -114,25 +120,26 @@ async function mockWeb(q: string, page: number): Promise<WebOut> {
 // ---------- images ----------
 type ImagesOut = { images: ImageResult[]; engine: Engine; more: boolean; warning?: string };
 
-export async function searchImages(q: string, page: number): Promise<ImagesOut> {
-  if (hasBrave()) {
+export async function searchImages(q: string, page: number, c: Creds): Promise<ImagesOut> {
+  if (hasBrave(c)) {
     try {
-      return await braveImages(q, page);
+      return await braveImages(q, page, c);
     } catch (e) {
-      if (!hasApiKey()) throw e;
-      const out = await claudeImages(q, page);
+      if (!hasApiKey(c)) throw e;
+      const out = await claudeImages(q, page, c);
       return { ...out, warning: (e as Error).message + " Using Claude search for now." };
     }
   }
-  if (hasApiKey()) return claudeImages(q, page);
+  if (hasApiKey(c)) return claudeImages(q, page, c);
+  if (!mockAllowed()) noKeys();
   return mockImages(q, page);
 }
 
-async function braveImages(q: string, page: number): Promise<ImagesOut> {
+async function braveImages(q: string, page: number, c: Creds): Promise<ImagesOut> {
   {
     // the image endpoint has no paging, so ask for more results each time and return the new slice
     const count = Math.min(200, 50 * (page + 1));
-    const d = await brave("images/search", { q, count, safesearch: "strict" });
+    const d = await brave(c.braveKey!, "images/search", { q, count, safesearch: "strict" });
     const all: ImageResult[] = (d.results || []).map((r: any) => ({
       src: r.properties?.url || r.thumbnail?.src,
       thumb: r.thumbnail?.src,
@@ -146,10 +153,10 @@ async function braveImages(q: string, page: number): Promise<ImagesOut> {
   }
 }
 
-async function claudeImages(q: string, page: number): Promise<ImagesOut> {
+async function claudeImages(q: string, page: number, c: Creds): Promise<ImagesOut> {
   {
     // No image search without Brave: find pages with Claude, then collect the images on those pages.
-    const web = await claudeWeb(`${q} images`, page);
+    const web = await claudeWeb(`${q} images`, page, c);
     const pages = web.results.slice(0, 5);
     const settled = await Promise.allSettled(pages.map((p) => pageImages(p.url)));
     const images: ImageResult[] = [];

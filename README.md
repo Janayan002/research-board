@@ -37,8 +37,17 @@ Open http://localhost:3000.
 
 **Cost:** each web search is $0.01 plus tokens. With the default cheap model (Haiku 5.5), one research search or one generated card costs roughly 2–4¢. Check the real numbers in the Console's usage page.
 
+### Accounts (optional)
+Without accounts, boards live in the browser's storage. To let people sign in and keep boards across devices:
+1. Create a free project at https://supabase.com and run `supabase/schema.sql` in its SQL Editor (tables, row-level security, and the `clips` image bucket).
+2. Put the project's URL and publishable key in `.env.local` as `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY`.
+3. In Supabase → Authentication → URL Configuration, set the Site URL to your deployed address and add `<your address>/auth/callback` (and `http://localhost:3000/auth/callback`) to the redirect list.
+4. Google sign-in is optional: enable the Google provider in Supabase and the button appears by itself.
+
+Anyone can still use Tack without signing in; the home page offers to move their boards into an account when they do.
+
 ### Deploy on Vercel
-Push to GitHub → import the repo in Vercel → add `ANTHROPIC_API_KEY` under Project → Settings → Environment Variables → deploy.
+Push to GitHub → import the repo in Vercel → add the environment variables from `.env.example` under Project → Settings → Environment Variables → deploy. Leave `ANTHROPIC_API_KEY` out if people should connect their own Claude key.
 
 ---
 
@@ -105,7 +114,7 @@ lib/
 ## Roadmap
 
 **Next: let other people use it**
-- [ ] Accounts and a database (Supabase): move boards out of localStorage
+- [x] Accounts and a database (Supabase): boards sync to the account, browser storage is the cache
 - [ ] Credits: count each AI action in the database and check it on the server **before** calling Claude
 - [ ] Free tier (e.g. 25 credits/month) and a paid plan with Stripe. Build it in test mode first
 - [ ] Rate limiting per user and IP

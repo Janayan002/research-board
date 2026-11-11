@@ -135,7 +135,7 @@ export async function signOut() {
   await sb.auth.signOut();
   useBoards.setState({ boards: {}, folders: {} }); // don't leave this person's boards for the next one
   try { localStorage.removeItem(LAST_USER_KEY); } catch {}
-  location.href = "/login";
+  location.href = "/";
 }
 
 function schedule(delay = SAVE_DELAY) {

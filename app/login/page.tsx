@@ -113,6 +113,9 @@ function Login() {
             {mode === "reset" && <p className="muted" style={{ margin: 0, fontSize: 12.5 }}>Enter the email you signed up with and we'll send a link to set a new password.</p>}
           </>
         )}
+        <p className="muted login-skip">
+          No account yet? <a href={safeNext}>Keep going without one</a>. Boards stay in this browser until you sign in.
+        </p>
       </form>
     </main>
   );

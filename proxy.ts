@@ -1,11 +1,9 @@
-// Sign-in gate: pages and API routes need a signed-in user when Supabase is configured.
-// It also refreshes the session cookie on every request, so people stay signed in.
-// Without Supabase env vars (local dev), everything is open and boards stay in the browser.
+// Keeps people signed in: refreshes the Supabase session cookie on every request.
+// There's no sign-in wall. Anyone can use Tack with boards saved in their browser, and sign in
+// later to keep them in an account. Without Supabase env vars, accounts are off altogether.
 
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
-
-const PUBLIC = ["/login", "/auth/", "/extension", "/icon.svg", "/tack-extension.zip"];
 
 export async function proxy(req: NextRequest) {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL, key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
@@ -24,21 +22,12 @@ export async function proxy(req: NextRequest) {
   });
   const { data: { user } } = await supabase.auth.getUser();
 
-  const { pathname, search } = req.nextUrl;
-  const isPublic = PUBLIC.some((p) => (p.endsWith("/") ? pathname.startsWith(p) : pathname === p));
-  if (user || isPublic) {
-    // a signed-in person has no reason to see the sign-in page
-    if (user && pathname === "/login") return NextResponse.redirect(new URL("/", req.url));
-    return res;
-  }
-
-  if (pathname.startsWith("/api/")) return NextResponse.json({ error: "Sign in first." }, { status: 401 });
-  const login = new URL("/login", req.url);
-  if (pathname !== "/") login.searchParams.set("next", pathname + search);
-  return NextResponse.redirect(login);
+  // a signed-in person has no reason to see the sign-in page
+  if (user && req.nextUrl.pathname === "/login") return NextResponse.redirect(new URL("/", req.url));
+  return res;
 }
 
 export const config = {
-  // skip Next's build files
-  matcher: ["/((?!_next/static|_next/image|favicon.ico).*)"],
+  // skip Next's build files and the API (it doesn't use the session)
+  matcher: ["/((?!_next/static|_next/image|favicon.ico|api/).*)"],
 };

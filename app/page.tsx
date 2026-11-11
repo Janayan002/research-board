@@ -10,6 +10,7 @@ import type { Board } from "@/lib/types";
 import { ConnectAIButton } from "@/components/ConnectAI";
 import { useHasExtension } from "@/lib/extension";
 import { discardLeftovers, importLeftovers, signOut, useAccount } from "@/lib/sync";
+import { hasAccounts } from "@/lib/supabase/client";
 import Link from "next/link";
 import { IconClose, IconFolder, IconMore, IconPencil, IconPlus, IconSearch, IconTack, IconTrash } from "@/components/Icons";
 
@@ -86,12 +87,13 @@ export default function Home() {
             <button className={view.kind === "folders" || view.kind === "folder" ? "on" : ""} onClick={() => setView({ kind: "folders" })}>Folders</button>
             <Link href="/extension">{hasExtension ? "Clipper installed" : "Browser extension"}</Link>
             <ConnectAIButton />
-            {account.user && <button onClick={() => signOut()} title={account.user.email}>Sign out</button>}
+            {account.user ? <button onClick={() => signOut()} title={account.user.email}>Sign out</button>
+              : hasAccounts ? <Link href="/login">Sign in</Link> : null}
           </nav>
         </div>
         <p className="home-line">
           Tack keeps images, links and notes on research boards. Every image keeps its source and the day you found it.
-          {account.user && <SyncWord />}
+          {hasAccounts && <SyncWord />}
         </p>
       </header>
 
@@ -184,7 +186,7 @@ export default function Home() {
                 Move {account.leftovers === 1 ? "it" : "them"} into your account?
               </span>
               <button className="btn small primary" onClick={importLeftovers}>Move to my account</button>
-              <button className="btn small ghost" onClick={discardLeftovers}>Leave {account.leftovers === 1 ? "it" : "them"}</button>
+              <button className="btn small ghost" onClick={discardLeftovers}>Discard {account.leftovers === 1 ? "it" : "them"}</button>
             </div>
           )}
           {!hydrated || !account.ready ? null : view.kind === "folders" ? (
@@ -251,9 +253,10 @@ export default function Home() {
   );
 }
 
-// one word at the end of the header line: whether your boards are saved to your account
+// a few words at the end of the header line: where your boards are being saved
 function SyncWord() {
-  const { status, error } = useAccount();
+  const { user, status, error } = useAccount();
+  if (!user) return <span className="sync-word off"> Boards stay in this browser. <Link href="/login">Sign in</Link> to keep them in an account.</span>;
   const text = status === "saving" ? "Saving…" : status === "loading" ? "Loading your boards…" : status === "error" ? `Couldn't save: ${error}` : "Saved to your account.";
   return <span className={`sync-word ${status}`}> {text}</span>;
 }

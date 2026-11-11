@@ -885,6 +885,10 @@ body { background: var(--ink); }
 .login-or::before, .login-or::after { content: ""; flex: 1; height: 1px; background: var(--line); }
 .login-sent { margin: 0; line-height: 1.5; padding: 12px 14px; border: 1px solid var(--paper); }
 .login-forgot { align-self: flex-start; font-size: 12.5px; }
+.login-skip { margin: 4px 0 0; font-size: 12.5px; line-height: 1.5; }
+.login-skip a { color: var(--text); font-weight: 700; }
+.sync-word.off { color: var(--paper-3); }
+.sync-word.off a { color: var(--rhodonite); font-weight: 700; }
 .sync-word { font-weight: 600; text-transform: none; letter-spacing: 0; color: var(--paper-3); }
 .sync-word.saving, .sync-word.loading { color: var(--rhodonite); }
 .sync-word.error { color: var(--coral); }

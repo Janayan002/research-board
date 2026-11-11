@@ -9,6 +9,7 @@ import { useBoards, useHydrated } from "@/lib/store";
 import type { Board } from "@/lib/types";
 import { ConnectAIButton } from "@/components/ConnectAI";
 import { useHasExtension } from "@/lib/extension";
+import { discardLeftovers, importLeftovers, signOut, useAccount } from "@/lib/sync";
 import Link from "next/link";
 import { IconClose, IconFolder, IconMore, IconPencil, IconPlus, IconSearch, IconTack, IconTrash } from "@/components/Icons";
 
@@ -20,6 +21,7 @@ export default function Home() {
   const router = useRouter();
   const hydrated = useHydrated();
   const hasExtension = useHasExtension();
+  const account = useAccount();
   const boards = useBoards((s) => s.boards);
   const folders = useBoards((s) => s.folders) ?? {};
   const createFolder = useBoards((s) => s.createFolder);
@@ -84,10 +86,12 @@ export default function Home() {
             <button className={view.kind === "folders" || view.kind === "folder" ? "on" : ""} onClick={() => setView({ kind: "folders" })}>Folders</button>
             <Link href="/extension">{hasExtension ? "Clipper installed" : "Browser extension"}</Link>
             <ConnectAIButton />
+            {account.user && <button onClick={() => signOut()} title={account.user.email}>Sign out</button>}
           </nav>
         </div>
         <p className="home-line">
           Tack keeps images, links and notes on research boards. Every image keeps its source and the day you found it.
+          {account.user && <SyncWord />}
         </p>
       </header>
 
@@ -173,7 +177,17 @@ export default function Home() {
         </header>
 
         <div className="home-content">
-          {!hydrated ? null : view.kind === "folders" ? (
+          {account.leftovers > 0 && (
+            <div className="import-bar" role="status">
+              <span>
+                {account.leftovers === 1 ? "There's a board" : `There are ${account.leftovers} boards`} in this browser from before you signed in.
+                Move {account.leftovers === 1 ? "it" : "them"} into your account?
+              </span>
+              <button className="btn small primary" onClick={importLeftovers}>Move to my account</button>
+              <button className="btn small ghost" onClick={discardLeftovers}>Leave {account.leftovers === 1 ? "it" : "them"}</button>
+            </div>
+          )}
+          {!hydrated || !account.ready ? null : view.kind === "folders" ? (
             folderList.length === 0 ? (
               <div className="empty">
                 No folders yet. <button className="crumb-link" onClick={newFolder}>Make one</button>, then drag boards onto it or use a board’s ⋯ menu.
@@ -235,6 +249,13 @@ export default function Home() {
       )}
     </div>
   );
+}
+
+// one word at the end of the header line: whether your boards are saved to your account
+function SyncWord() {
+  const { status, error } = useAccount();
+  const text = status === "saving" ? "Saving…" : status === "loading" ? "Loading your boards…" : status === "error" ? `Couldn't save: ${error}` : "Saved to your account.";
+  return <span className={`sync-word ${status}`}> {text}</span>;
 }
 
 const nextFolderName = (names: string[]) => {

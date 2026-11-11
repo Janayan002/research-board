@@ -7,7 +7,7 @@ import { IconClose, IconImage, IconLink, IconPlus, IconSearch, IconSparkle } fro
 import ResearchPanel, { type NewCard } from "./ResearchPanel";
 import type { PickedImage } from "./ImagePicker";
 import type { Board, GeneratedCard } from "@/lib/types";
-import { previewClick } from "@/lib/preview";
+import { asAddress, previewClick, usePreview } from "@/lib/preview";
 import { apiFetch } from "@/lib/aiKeys";
 import { ConnectAIButton } from "./ConnectAI";
 
@@ -76,6 +76,9 @@ export default function SearchPanel({ board, open, onClose, onAddCard, onAddLink
   const submit = () => {
     const q = input.trim();
     if (!q) return;
+    // a web address opens the page itself, like a browser's address bar
+    const address = asAddress(q);
+    if (address) { usePreview.getState().open(address); return; }
     setQuery(q);
     if (tab === "ai") return;
     run(tab, q);
@@ -139,7 +142,7 @@ export default function SearchPanel({ board, open, onClose, onAddCard, onAddLink
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={(e) => e.stopPropagation()}
-              placeholder={tab === "images" ? "Search images" : "Search the web"}
+              placeholder={tab === "images" ? "Search images, or paste a link" : "Search the web, or paste a link"}
               aria-label="Search"
             />
             {input && <button type="button" className="sp-clear" aria-label="Clear" onClick={() => setInput("")}><IconClose size={14} /></button>}

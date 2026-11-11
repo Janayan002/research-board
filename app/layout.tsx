@@ -5,6 +5,7 @@ import "@fontsource/caveat/500.css"; // handwriting for notes
 import "./globals.css";
 import { GOOGLE_FONTS_URL } from "@/lib/fonts";
 import ConnectAI from "@/components/ConnectAI";
+import AccountSync from "@/components/AccountSync";
 
 export const metadata: Metadata = {
   title: "Tack",
@@ -20,7 +21,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="" />
         <link rel="stylesheet" href={GOOGLE_FONTS_URL} />
       </head>
-      <body>{children}<ConnectAI /></body>
+      <body>{children}<ConnectAI /><AccountSync /></body>
     </html>
   );
 }

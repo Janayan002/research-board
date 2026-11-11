@@ -32,6 +32,17 @@ export function opensInBrowser(url: string) {
   } catch { return false; }
 }
 
+// Typed into the search box, does this look like a web address rather than a search?
+// "pinterest.com", "www.tate.org.uk/art" and anything starting with http(s):// count; "e.g. this" or "3.5 inch" don't.
+export function asAddress(text: string): string | null {
+  const t = text.trim();
+  if (!t || /\s/.test(t)) return null;
+  if (/^https?:\/\//i.test(t)) { try { return new URL(t).toString(); } catch { return null; } }
+  const host = t.split(/[/?#]/)[0];
+  if (!/^(?:[a-z0-9-]+\.)+[a-z]{2,}(?::\d+)?$/i.test(host)) return null;
+  try { return new URL("https://" + t).toString(); } catch { return null; }
+}
+
 // For <a> clicks: open in the preview pane, unless Cmd/Ctrl/Shift-click (then the browser handles it)
 // or the site only works in a real browser tab.
 export function previewClick(e: React.MouseEvent, url?: string) {

@@ -875,3 +875,18 @@ body { background: var(--ink); }
 .ca-dot { background: var(--paper-3); }
 .ex-page.on { border-color: var(--rhodonite); }
 .ex-label { font-weight: 700; }
+
+/* ---- accounts: sign-in page, sync status, import bar ---- */
+.login-card { max-width: 380px; gap: 16px; padding: 26px 26px 28px; }
+.login-modes { font-size: 12.5px; }
+.login-google { height: 38px; justify-content: center; gap: 9px; }
+.login-google:hover svg { filter: brightness(0) invert(1); }
+.login-or { display: flex; align-items: center; gap: 10px; color: var(--paper-3); font-size: 12px; }
+.login-or::before, .login-or::after { content: ""; flex: 1; height: 1px; background: var(--line); }
+.login-sent { margin: 0; line-height: 1.5; padding: 12px 14px; border: 1px solid var(--paper); }
+.login-forgot { align-self: flex-start; font-size: 12.5px; }
+.sync-word { font-weight: 600; text-transform: none; letter-spacing: 0; color: var(--paper-3); }
+.sync-word.saving, .sync-word.loading { color: var(--rhodonite); }
+.sync-word.error { color: var(--coral); }
+.import-bar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 12px 16px; margin-bottom: 20px; border: 1px solid var(--rhodonite); color: var(--paper); line-height: 1.4; }
+.import-bar > span { flex: 1; min-width: 240px; }

@@ -79,11 +79,18 @@ export async function GET(req: Request) {
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), 12000);
   try {
-    const res = await fetch(url, {
+    const get = (u: string) => fetch(u, {
       signal: ctrl.signal,
       redirect: "follow",
       headers: { "user-agent": BROWSER_UA, accept: "text/html,application/xhtml+xml,*/*;q=0.8", "accept-language": "en-US,en;q=0.9" },
     });
+    // Tack is served over https, and a secure page can't load styles or scripts from a plain http site.
+    // So for http:// links, try the https version of the site first and fall back to http.
+    let res: Response;
+    if (/^http:\/\//i.test(url)) {
+      try { res = await get(url.replace(/^http:/i, "https:")); if (!res.ok) throw new Error(); }
+      catch (e) { if ((e as Error)?.name === "AbortError") throw e; res = await get(url); }
+    } else res = await get(url);
     const finalUrl = res.url || url;
     if (!isSafePublicUrl(finalUrl)) return message("That link can’t be opened.");
     const type = res.headers.get("content-type") || "";
@@ -98,7 +105,8 @@ export async function GET(req: Request) {
     html = html
       .replace(/<base\b[^>]*>/gi, "")
       .replace(/<meta[^>]+http-equiv=["']?content-security-policy["']?[^>]*>/gi, "");
-    const inject = `<base href="${esc(finalUrl)}">${helper(finalUrl)}`;
+    // upgrade-insecure-requests: any http:// image, style or script the page asks for is fetched over https instead of being blocked
+    const inject = `<meta http-equiv="Content-Security-Policy" content="upgrade-insecure-requests"><base href="${esc(finalUrl)}">${helper(finalUrl)}`;
     if (/<head\b[^>]*>/i.test(html)) html = html.replace(/<head\b[^>]*>/i, (m) => m + inject);
     else if (/<html\b[^>]*>/i.test(html)) html = html.replace(/<html\b[^>]*>/i, (m) => m + "<head>" + inject + "</head>");
     else html = inject + html;

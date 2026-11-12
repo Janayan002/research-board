@@ -20,7 +20,7 @@ type BaseCard = {
   x: number; // position on the canvas (world units = frame pixels)
   y: number;
   w: number; // width; height grows with content
-  scale?: number; // visual scale, so cards added while zoomed out are still readable
+  scale?: number; // no longer used: older boards had a hidden visual scale, folded into size/width on load (store.bakeScale)
   createdAt: number;
 };
 

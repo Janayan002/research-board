@@ -66,6 +66,24 @@ const nextPageName = (b: Board) => {
 
 export const currentPage = (b: Board): Page => b.pages.find((p) => p.id === b.currentPageId) ?? b.pages[0];
 
+// Older cards carried a hidden visual `scale` (so cards added while zoomed out looked big), which made two
+// "24 px" texts render at different sizes. Fold it into the real numbers: text size and card width.
+export function bakeScale(b: Board): Board {
+  let changed = false;
+  const pages = b.pages.map((p) => {
+    if (!p.cards.some((c) => c.scale != null)) return p;
+    changed = true;
+    const cards = p.cards.map((c) => {
+      const { scale, ...rest } = c;
+      const s = scale ?? 1;
+      const w = Math.round(c.w * s);
+      return (rest.kind === "text" ? { ...rest, w, size: Math.round(rest.size * s) } : { ...rest, w }) as Card;
+    });
+    return { ...p, cards };
+  });
+  return changed ? { ...b, pages } : b;
+}
+
 // ---- undo history ----
 // Kept in memory only (not saved), per board. We snapshot a board's pages before each change to them.
 // Changes that come in a quick burst (typing, a multi-card move) collapse into one undo step.
@@ -277,7 +295,7 @@ export const useBoards = create<State>()(
     },
     {
       name: "research-board-v1",
-      version: 4,
+      version: 5,
       migrate: (persisted: any, version) => {
         // v1 boards had cards directly on the board — move them onto "Page 1"
         if (version < 2 && persisted?.boards) {
@@ -303,6 +321,10 @@ export const useBoards = create<State>()(
           for (const b of Object.values<any>(persisted.boards))
             for (const p of b.pages ?? []) for (const c of p.cards ?? [])
               if (c.kind === "note") { c.kind = "text"; c.font = "Caveat"; c.size = 24; c.color = "#1e1e1e"; }
+        }
+        // v1–v4: the hidden card scale becomes real text sizes and widths
+        if (version < 5 && persisted?.boards) {
+          for (const [id, b] of Object.entries<any>(persisted.boards)) if (b?.pages) persisted.boards[id] = bakeScale(b);
         }
         return persisted;
       },

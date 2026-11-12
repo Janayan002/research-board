@@ -4,7 +4,8 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { IconDuplicate, IconExternal, IconImage, IconLink, IconPencil, IconPlus, IconText, IconTrash, RESEARCH_ICONS, IconPrint } from "./Icons";
+import { IconDuplicate, IconExternal, IconImage, IconLink, IconPencil, IconPlus, IconText, IconTrash, RESEARCH_ICONS, IconPrint,
+  IconAlignLeft, IconAlignCenterX, IconAlignRight, IconAlignTop, IconAlignCenterY, IconAlignBottom, IconSpaceX, IconSpaceY } from "./Icons";
 import CitationEditor from "./CitationEditor";
 import type { CiteStyle } from "@/lib/citation";
 import { TEXT_COLORS, TEXT_FONTS, TEXT_SIZES, rememberTextStyle } from "@/lib/fonts";
@@ -22,9 +23,21 @@ type Props = {
   onExport: () => void;
   selectionCount: number;
   onDeleteSelection: () => void;
+  onArrange: (kind: ArrangeKind) => void;
 };
 
-export default function LeftPanel({ board, page, selectedId, citeStyle, setCiteStyle, onFindImages, onGoToPage, onExport, selectionCount, onDeleteSelection }: Props) {
+// line several selected cards up, or space them out evenly
+export type ArrangeKind = "left" | "centerX" | "right" | "top" | "centerY" | "bottom" | "spaceX" | "spaceY";
+const ARRANGE: { kind: ArrangeKind; tip: string; Icon: (p: { size?: number }) => React.JSX.Element }[] = [
+  { kind: "left", tip: "Align left edges", Icon: IconAlignLeft },
+  { kind: "centerX", tip: "Align centres (left to right)", Icon: IconAlignCenterX },
+  { kind: "right", tip: "Align right edges", Icon: IconAlignRight },
+  { kind: "top", tip: "Align top edges", Icon: IconAlignTop },
+  { kind: "centerY", tip: "Align middles (top to bottom)", Icon: IconAlignCenterY },
+  { kind: "bottom", tip: "Align bottom edges", Icon: IconAlignBottom },
+];
+
+export default function LeftPanel({ board, page, selectedId, citeStyle, setCiteStyle, onFindImages, onGoToPage, onExport, selectionCount, onDeleteSelection, onArrange }: Props) {
   const updateCard = useBoards((s) => s.updateCard);
   const removeCard = useBoards((s) => s.removeCard);
   const addCard = useBoards((s) => s.addCard);
@@ -50,6 +63,12 @@ export default function LeftPanel({ board, page, selectedId, citeStyle, setCiteS
     if (!sel) return;
     updateCard(board.id, cardPage.id, sel.id, patch);
     rememberTextStyle(patch);
+  };
+  // every text on every page of the board takes the selected text's size (one undo step)
+  const otherTextSizes = board.pages.flatMap((p) => p.cards).filter((c) => c.kind === "text" && sel && c.id !== sel.id && c.size !== (sel as TextCard).size).length;
+  const sizeAllText = () => {
+    if (!sel || sel.kind !== "text") return;
+    for (const p of board.pages) for (const c of p.cards) if (c.kind === "text" && c.size !== sel.size) updateCard(board.id, p.id, c.id, { size: sel.size });
   };
 
   return (
@@ -144,8 +163,20 @@ export default function LeftPanel({ board, page, selectedId, citeStyle, setCiteS
       {selectionCount > 1 && (
         <div className="selected-section">
           <div className="selected-title">{selectionCount} items selected</div>
+          <div className="arrange-row" role="toolbar" aria-label="Arrange">
+            {ARRANGE.map(({ kind, tip, Icon }) => (
+              <button key={kind} className="icon-btn" title={tip} aria-label={tip} onClick={() => onArrange(kind)}><Icon size={16} /></button>
+            ))}
+            {selectionCount > 2 && (
+              <>
+                <span className="sep" />
+                <button className="icon-btn" title="Same space between them, left to right" aria-label="Space evenly left to right" onClick={() => onArrange("spaceX")}><IconSpaceX size={16} /></button>
+                <button className="icon-btn" title="Same space between them, top to bottom" aria-label="Space evenly top to bottom" onClick={() => onArrange("spaceY")}><IconSpaceY size={16} /></button>
+              </>
+            )}
+          </div>
           <div className="muted" style={{ fontSize: 12, lineHeight: 1.5, margin: "0 0 10px" }}>
-            Drag any of them to move them together, even onto another page. Shift-click to add or remove one.
+            Line them up or space them evenly above. Drag any of them to move them together, even onto another page. Shift-click to add or remove one.
           </div>
           <button className="btn small" onClick={onDeleteSelection}><IconTrash size={13} /> Delete {selectionCount} items</button>
         </div>
@@ -179,6 +210,11 @@ export default function LeftPanel({ board, page, selectedId, citeStyle, setCiteS
                 <button className={`icon-btn bold-btn ${sel.bold ? "active" : ""}`} style={{ width: 32, height: 32 }}
                   aria-label="Bold" aria-pressed={!!sel.bold} onClick={() => styleText({ bold: !sel.bold })}>B</button>
               </div>
+              {otherTextSizes > 0 && (
+                <button className="btn small" onClick={sizeAllText} title="Every text on every page of this board becomes this size">
+                  Make all text {sel.size} px ({otherTextSizes} other{otherTextSizes === 1 ? "" : "s"})
+                </button>
+              )}
               <div className="color-row">
                 {TEXT_COLORS.map((col) => (
                   <div key={col} className={`swatch ${sel.color === col ? "on" : ""}`} style={{ background: col }} title={col}
@@ -230,12 +266,15 @@ export default function LeftPanel({ board, page, selectedId, citeStyle, setCiteS
               <IconImage size={12} /> Find images from its sources
             </button>
           )}
-          <div className="size-row">
-            <span className="muted" style={{ fontSize: 12, flex: 1 }}>Size</span>
-            <button className="icon-btn" style={{ width: 28, height: 28 }} aria-label="Smaller" onClick={() => updateCard(board.id, cardPage.id, sel.id, { scale: Math.max(0.25, (sel.scale ?? 1) / 1.25) })}>−</button>
-            <span className="val">{Math.round((sel.scale ?? 1) * 100)}%</span>
-            <button className="icon-btn" style={{ width: 28, height: 28 }} aria-label="Larger" onClick={() => updateCard(board.id, cardPage.id, sel.id, { scale: Math.min(8, (sel.scale ?? 1) * 1.25) })}>+</button>
-          </div>
+          {sel.kind !== "text" && (
+            <div className="size-row">
+              <span className="muted" style={{ fontSize: 12, flex: 1 }}>Width</span>
+              <button className="icon-btn" style={{ width: 28, height: 28 }} aria-label="Smaller" onClick={() => updateCard(board.id, cardPage.id, sel.id, { w: Math.max(140, Math.round(sel.w / 1.25)) })}>−</button>
+              <input className="input sm val" aria-label="Width" type="number" min={140} max={8000} value={sel.w}
+                onChange={(e) => { const w = Number(e.target.value); if (w >= 140 && w <= 8000) updateCard(board.id, cardPage.id, sel.id, { w: Math.round(w) }); }} />
+              <button className="icon-btn" style={{ width: 28, height: 28 }} aria-label="Larger" onClick={() => updateCard(board.id, cardPage.id, sel.id, { w: Math.min(8000, Math.round(sel.w * 1.25)) })}>+</button>
+            </div>
+          )}
           {board.pages.length > 1 && (
             <select
               className="input sm"

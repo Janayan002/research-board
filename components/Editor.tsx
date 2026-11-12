@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import Canvas, { clampZoom, type Tool } from "./Canvas";
-import LeftPanel from "./LeftPanel";
+import LeftPanel, { type ArrangeKind } from "./LeftPanel";
 import { type NewCard } from "./ResearchPanel";
 import SearchPanel from "./SearchPanel";
 import PreviewPane from "./PreviewPane";
@@ -178,33 +178,78 @@ export default function Editor({ board }: { board: Board }) {
   };
 
   // ----- adding cards -----
-  // new cards get a scale so they're readable at the current zoom (like placing them at "screen size")
+  // new cards are sized so they're readable at the current zoom (like placing them at "screen size"):
+  // the factor goes into the card's real width and text size, so what the panel says is what you see
   const readableScale = () => Math.round(Math.min(4, Math.max(1, 0.75 / viewport.zoom)) * 100) / 100;
 
   // `at` is a canvas position; the card goes on the page under it, positioned relative to that page
   const place = (card: NewCard, at?: { x: number; y: number }): string => {
     const id = uid();
     const scale = readableScale();
+    const w = card.kind === "text" ? card.w : Math.round(card.w * scale);
     let pos = at;
     if (!pos) {
       const c = centerWorld();
       const off = (cascade.current++ % 6) * 28 * scale;
-      pos = { x: c.x - (card.w * scale) / 2 + off, y: c.y - 120 * scale + off };
+      pos = { x: c.x - w / 2 + off, y: c.y - 120 * scale + off };
     }
-    const i = pageIndexAt(board, pos.x + (card.w * scale) / 2);
+    const i = pageIndexAt(board, pos.x + w / 2);
     const off = pageOffset(board, i);
-    addCard(board.id, board.pages[i].id, { ...card, id, scale, x: Math.round(pos.x - off.x), y: Math.round(pos.y - off.y), createdAt: Date.now() } as Card);
+    // text keeps its exact size whatever the zoom (like Figma), so type is the same on every page
+    const sized = card.kind === "text" ? card : { ...card, w };
+    addCard(board.id, board.pages[i].id, { ...sized, id, x: Math.round(pos.x - off.x), y: Math.round(pos.y - off.y), createdAt: Date.now() } as Card);
     setSelectedId(id);
     return id;
+  };
+
+  // ----- arranging several cards (left panel) -----
+  // Heights come from the screen, since a card's height depends on its content.
+  const arrange = (kind: ArrangeKind) => {
+    const el = containerRef.current;
+    if (!el) return;
+    const ids = selection.filter((id) => page.cards.some((c) => c.id === id)); // the current page only
+    if (ids.length < 2) return;
+    const rect = el.getBoundingClientRect();
+    const boxes = ids.map((id) => {
+      const n = el.querySelector<HTMLElement>(`[data-card-id="${id}"]`);
+      const card = page.cards.find((c) => c.id === id)!;
+      const r = n?.getBoundingClientRect();
+      return { id, x: card.x, y: card.y, w: r ? r.width / viewport.zoom : card.w, h: r ? r.height / viewport.zoom : 0 };
+    });
+    void rect;
+    const x0 = Math.min(...boxes.map((b) => b.x)), x1 = Math.max(...boxes.map((b) => b.x + b.w));
+    const y0 = Math.min(...boxes.map((b) => b.y)), y1 = Math.max(...boxes.map((b) => b.y + b.h));
+    const moves: Record<string, { x?: number; y?: number }> = {};
+    if (kind === "left") for (const b of boxes) moves[b.id] = { x: x0 };
+    if (kind === "right") for (const b of boxes) moves[b.id] = { x: x1 - b.w };
+    if (kind === "centerX") for (const b of boxes) moves[b.id] = { x: (x0 + x1) / 2 - b.w / 2 };
+    if (kind === "top") for (const b of boxes) moves[b.id] = { y: y0 };
+    if (kind === "bottom") for (const b of boxes) moves[b.id] = { y: y1 - b.h };
+    if (kind === "centerY") for (const b of boxes) moves[b.id] = { y: (y0 + y1) / 2 - b.h / 2 };
+    if (kind === "spaceX" || kind === "spaceY") {
+      // keep the first and last where they are; share the room between them out evenly
+      const horizontal = kind === "spaceX";
+      const sorted = [...boxes].sort((a, b) => (horizontal ? a.x - b.x : a.y - b.y));
+      const span = horizontal ? x1 - x0 : y1 - y0;
+      const used = sorted.reduce((s, b) => s + (horizontal ? b.w : b.h), 0);
+      const gap = (span - used) / (sorted.length - 1);
+      let cursor = horizontal ? x0 : y0;
+      for (const b of sorted) { moves[b.id] = horizontal ? { x: cursor } : { y: cursor }; cursor += (horizontal ? b.w : b.h) + gap; }
+    }
+    for (const [id, m] of Object.entries(moves)) {
+      const patch: Partial<Card> = {};
+      if (m.x !== undefined) patch.x = Math.round(m.x);
+      if (m.y !== undefined) patch.y = Math.round(m.y);
+      updateCard(board.id, page.id, id, patch);
+    }
   };
   // which page a card is on (cards can be on any page now)
   const pageOf = (cardId: string) =>
     (useBoards.getState().boards[board.id]?.pages ?? board.pages).find((p) => p.cards.some((c) => c.id === cardId));
 
   const createText = (x: number, y: number) => {
-    const s = readableScale();
     const st = lastTextStyle();
-    const id = place({ kind: "text", w: 320, text: "", ...st }, { x: x - 6 * s, y: y - st.size * 0.7 * s });
+    const id = place({ kind: "text", w: 320, text: "", ...st }, { x: x - 6, y: y - st.size * 0.7 });
     setEditingId(id);
     setTool("select");
   };
@@ -425,7 +470,7 @@ export default function Editor({ board }: { board: Board }) {
         />
       </div>
 
-      <LeftPanel board={board} page={page} onGoToPage={(id) => goToPage(id)} onExport={() => setShowExport(true)} selectedId={selectedId} selectionCount={selection.length} onDeleteSelection={() => { for (const id of selection) { const pg = pageOf(id); if (pg) removeCard(board.id, pg.id, id); } setSelection([]); }} citeStyle={citeStyle} setCiteStyle={setCiteStyle} onFindImages={openPicker} />
+      <LeftPanel board={board} page={page} onGoToPage={(id) => goToPage(id)} onExport={() => setShowExport(true)} selectedId={selectedId} selectionCount={selection.length} onArrange={arrange} onDeleteSelection={() => { for (const id of selection) { const pg = pageOf(id); if (pg) removeCard(board.id, pg.id, id); } setSelection([]); }} citeStyle={citeStyle} setCiteStyle={setCiteStyle} onFindImages={openPicker} />
 
       <nav className={`dock ${tight ? "vertical" : ""}`} aria-label="Tools" style={tight ? { left: LEFT_TRAY + 12 } : { left: `calc(50% + ${(LEFT_TRAY - rightSpace) / 2}px)` }}>
         <DockTool t="select" tip="Select  V"><IconSelect /></DockTool>

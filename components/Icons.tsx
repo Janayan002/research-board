@@ -53,5 +53,15 @@ export const IconCompass = ({ size }: P) => (<svg {...base(size)}><circle cx="12
 export const RESEARCH_ICONS: Record<string, (p: P) => React.JSX.Element> = {
   artist: IconArtist, museum: IconMuseum, article: IconArticle, exhibition: IconExhibition, product: IconApp, any: IconCompass,
 };
-export const IconKey = ({ size }: P) => (<svg {...base(size)}><circle cx="8" cy="15" r="4" {...tint} /><path d="M11 12l8.5-8.5M16.5 6.5l2.5 2.5M14.5 8.5l2 2" /></svg>);
+// arranging several cards (left panel)
+export const IconAlignLeft = ({ size }: P) => (<svg {...base(size)}><path d="M5 4v16" /><rect x="7.5" y="7" width="11" height="3.5" rx=".8" {...tint} /><rect x="7.5" y="13.5" width="7" height="3.5" rx=".8" {...tint} /></svg>);
+export const IconAlignCenterX = ({ size }: P) => (<svg {...base(size)}><path d="M12 4v16" /><rect x="6" y="7" width="12" height="3.5" rx=".8" {...tint} /><rect x="8.5" y="13.5" width="7" height="3.5" rx=".8" {...tint} /></svg>);
+export const IconAlignRight = ({ size }: P) => (<svg {...base(size)}><path d="M19 4v16" /><rect x="5.5" y="7" width="11" height="3.5" rx=".8" {...tint} /><rect x="9.5" y="13.5" width="7" height="3.5" rx=".8" {...tint} /></svg>);
+export const IconAlignTop = ({ size }: P) => (<svg {...base(size)}><path d="M4 5h16" /><rect x="7" y="7.5" width="3.5" height="11" rx=".8" {...tint} /><rect x="13.5" y="7.5" width="3.5" height="7" rx=".8" {...tint} /></svg>);
+export const IconAlignCenterY = ({ size }: P) => (<svg {...base(size)}><path d="M4 12h16" /><rect x="7" y="6" width="3.5" height="12" rx=".8" {...tint} /><rect x="13.5" y="8.5" width="3.5" height="7" rx=".8" {...tint} /></svg>);
+export const IconAlignBottom = ({ size }: P) => (<svg {...base(size)}><path d="M4 19h16" /><rect x="7" y="5.5" width="3.5" height="11" rx=".8" {...tint} /><rect x="13.5" y="9.5" width="3.5" height="7" rx=".8" {...tint} /></svg>);
+export const IconSpaceX = ({ size }: P) => (<svg {...base(size)}><path d="M4 5v14M20 5v14" /><rect x="7.5" y="8" width="3.5" height="8" rx=".8" {...tint} /><rect x="13" y="8" width="3.5" height="8" rx=".8" {...tint} /></svg>);
+export const IconSpaceY = ({ size }: P) => (<svg {...base(size)}><path d="M5 4h14M5 20h14" /><rect x="8" y="7.5" width="8" height="3.5" rx=".8" {...tint} /><rect x="8" y="13" width="8" height="3.5" rx=".8" {...tint} /></svg>);
+
+export const IconKey =({ size }: P) => (<svg {...base(size)}><circle cx="8" cy="15" r="4" {...tint} /><path d="M11 12l8.5-8.5M16.5 6.5l2.5 2.5M14.5 8.5l2 2" /></svg>);
 export const IconPrint = ({ size }: P) => (<svg {...base(size)}><path d="M7 9V4.5h10V9" /><rect x="3.5" y="9" width="17" height="7.5" rx="2" {...tint} /><path d="M7 14h10v5.5H7z" /></svg>);

@@ -9,6 +9,7 @@ import CardView from "./CardView";
 import { useBoards } from "@/lib/store";
 import type { Board, Card, Page, Viewport } from "@/lib/types";
 import { pageIndexAt, pageOffset } from "@/lib/layout";
+import { snapTo, type Box, type GapMark, type Guide } from "@/lib/snap";
 
 export type Tool = "select" | "hand" | "text";
 
@@ -31,13 +32,49 @@ type Props = {
 
 type Gesture =
   | { type: "pan"; startX: number; startY: number; vx: number; vy: number }
-  // dragging one or more selected cards; `id` is the one under the pointer
-  | { type: "drag"; id: string; startX: number; startY: number; items: { id: string; x: number; y: number; w: number }[]; moved: boolean; additive: boolean }
+  // dragging one or more selected cards; `id` is the one under the pointer. Sizes are measured from the
+  // screen at the start (card heights depend on their content); `others` are the page's other cards, for snapping.
+  | { type: "drag"; id: string; startX: number; startY: number; items: { id: string; x: number; y: number; w: number; h: number }[]; moved: boolean; additive: boolean; pageIdx: number; others: Box[] }
   | { type: "resize"; id: string; pageId: string; startX: number; x: number; y: number; w: number }
   // a selection box drawn on empty canvas (screen coordinates relative to the canvas)
   | { type: "marquee"; x0: number; y0: number; base: string[] };
 
 type Live = Record<string, { x: number; y: number; w: number }>;
+
+// Red alignment lines and gap labels, drawn on the screen (so they stay 1px at any zoom)
+function GuideLayer({ pageIdx, guides, gaps, board, vp }: { pageIdx: number; guides: Guide[]; gaps: GapMark[]; board: Board; vp: Viewport }) {
+  const off = pageOffset(board, pageIdx);
+  const sx = (x: number) => (x + off.x) * vp.zoom + vp.x;
+  const sy = (y: number) => (y + off.y) * vp.zoom + vp.y;
+  return (
+    <svg className="guides" aria-hidden>
+      {guides.map((g, i) => g.axis === "x"
+        ? <line key={i} x1={sx(g.at)} x2={sx(g.at)} y1={sy(g.from)} y2={sy(g.to)} />
+        : <line key={i} y1={sy(g.at)} y2={sy(g.at)} x1={sx(g.from)} x2={sx(g.to)} />)}
+      {gaps.map((g, i) => {
+        const n = Math.round(g.to - g.from);
+        const label = String(n);
+        const lw = label.length * 7 + 10;
+        if (g.axis === "x") {
+          const y = sy(g.at), a = sx(g.from), b = sx(g.to), mx = (a + b) / 2;
+          return (
+            <g key={"g" + i} className="gap-label">
+              <line x1={a} x2={b} y1={y} y2={y} /><line x1={a} x2={a} y1={y - 5} y2={y + 5} /><line x1={b} x2={b} y1={y - 5} y2={y + 5} />
+              <rect x={mx - lw / 2} y={y + 6} width={lw} height={16} /><text x={mx} y={y + 14}>{label}</text>
+            </g>
+          );
+        }
+        const x = sx(g.at), a = sy(g.from), b = sy(g.to), my = (a + b) / 2;
+        return (
+          <g key={"g" + i} className="gap-label">
+            <line y1={a} y2={b} x1={x} x2={x} /><line y1={a} y2={a} x1={x - 5} x2={x + 5} /><line y1={b} y2={b} x1={x - 5} x2={x + 5} />
+            <rect x={x + 6} y={my - 8} width={lw} height={16} /><text x={x + 6 + lw / 2} y={my}>{label}</text>
+          </g>
+        );
+      })}
+    </svg>
+  );
+}
 
 export const MIN_ZOOM = 0.05;
 export const MAX_ZOOM = 4;
@@ -63,6 +100,24 @@ export default function Canvas(p: Props) {
   const [live, setLive] = useState<Live | null>(null);
   const [box, setBox] = useState<{ x: number; y: number; w: number; h: number } | null>(null);
   const [panning, setPanning] = useState(false);
+  const [guides, setGuides] = useState<{ pageIdx: number; guides: Guide[]; gaps: GapMark[] } | null>(null);
+
+  // where every card sits on the screen, as page-relative world boxes (heights come from the rendered content)
+  const measure = (pageIdx: number): Record<string, Box> => {
+    const el = p.containerRef.current;
+    if (!el) return {};
+    const rect = el.getBoundingClientRect();
+    const off = pageOffset(board, pageIdx);
+    const out: Record<string, Box> = {};
+    el.querySelectorAll<HTMLElement>("[data-card-id]").forEach((n) => {
+      const r = n.getBoundingClientRect();
+      out[n.dataset.cardId!] = {
+        x: (r.left - rect.left - vp.x) / vp.zoom - off.x, y: (r.top - rect.top - vp.y) / vp.zoom - off.y,
+        w: r.width / vp.zoom, h: r.height / vp.zoom,
+      };
+    });
+    return out;
+  };
 
   // Wheel: pinch / ctrl+scroll zooms around the cursor, plain scroll pans (like Figma).
   // Needs a non-passive listener so we can preventDefault (stops browser page-zoom).
@@ -142,8 +197,11 @@ export default function Canvas(p: Props) {
     } else if (!sel.includes(id)) sel = [id];
     p.setSelection(sel);
     if (sel.length === 1) bringToFront(board.id, cardPage.id, id);
-    const items = sel.map((sid) => findCard(sid)).filter(Boolean).map((f) => ({ id: f!.card.id, x: f!.card.x, y: f!.card.y, w: f!.card.w }));
-    gesture.current = { type: "drag", id, startX: e.clientX, startY: e.clientY, items, moved: false, additive };
+    const pageIdx = board.pages.findIndex((pg) => pg.id === cardPage.id);
+    const boxes = measure(pageIdx);
+    const items = sel.map((sid) => findCard(sid)).filter(Boolean).map((f) => ({ id: f!.card.id, x: f!.card.x, y: f!.card.y, w: f!.card.w, h: boxes[f!.card.id]?.h ?? 0 }));
+    const others = cardPage.cards.filter((c) => !sel.includes(c.id) && boxes[c.id]).map((c) => boxes[c.id]);
+    gesture.current = { type: "drag", id, startX: e.clientX, startY: e.clientY, items, moved: false, additive, pageIdx, others };
     p.containerRef.current?.setPointerCapture(e.pointerId);
   };
 
@@ -161,15 +219,22 @@ export default function Canvas(p: Props) {
     if (g.type === "pan") {
       setViewport((v) => ({ ...v, x: g.vx + (e.clientX - g.startX), y: g.vy + (e.clientY - g.startY) }));
     } else if (g.type === "drag") {
-      const dx = (e.clientX - g.startX) / vp.zoom;
-      const dy = (e.clientY - g.startY) / vp.zoom;
+      let dx = (e.clientX - g.startX) / vp.zoom;
+      let dy = (e.clientY - g.startY) / vp.zoom;
       if (Math.abs(dx) + Math.abs(dy) > 1) g.moved = true;
+      // snap to other cards and the page (hold Cmd/Ctrl to move freely)
+      if (g.moved && !e.metaKey && !e.ctrlKey && g.items.length) {
+        const x0 = Math.min(...g.items.map((it) => it.x)) + dx, y0 = Math.min(...g.items.map((it) => it.y)) + dy;
+        const x1 = Math.max(...g.items.map((it) => it.x + it.w)) + dx, y1 = Math.max(...g.items.map((it) => it.y + it.h)) + dy;
+        const s = snapTo({ x: x0, y: y0, w: x1 - x0, h: y1 - y0 }, g.others, board.frame, 6 / vp.zoom);
+        dx += s.dx; dy += s.dy;
+        setGuides(s.guides.length || s.gaps.length ? { pageIdx: g.pageIdx, guides: s.guides, gaps: s.gaps } : null);
+      } else setGuides(null);
       const next: Live = {};
       for (const it of g.items) next[it.id] = { x: Math.round(it.x + dx), y: Math.round(it.y + dy), w: it.w };
       setLive(next);
     } else if (g.type === "resize") {
-      const sc = findCard(g.id)?.card.scale ?? 1;
-      const dw = (e.clientX - g.startX) / vp.zoom / sc;
+      const dw = (e.clientX - g.startX) / vp.zoom;
       setLive({ [g.id]: { x: g.x, y: g.y, w: Math.max(140, Math.round(g.w + dw)) } });
     } else if (g.type === "marquee") {
       const rect = p.containerRef.current!.getBoundingClientRect();
@@ -192,6 +257,7 @@ export default function Canvas(p: Props) {
     gesture.current = null;
     setPanning(false);
     setBox(null);
+    setGuides(null);
     if (g?.type === "drag" && !g.moved && !g.additive && p.selection.length > 1) p.setSelection([g.id]); // plain click inside a group: just that card
     if (live && g?.type === "resize") {
       const l = live[g.id];
@@ -203,7 +269,7 @@ export default function Canvas(p: Props) {
         const f = findCard(id);
         if (!f) continue;
         const from = pageOffset(board, f.index);
-        const centerX = from.x + l.x + (f.card.w * (f.card.scale ?? 1)) / 2;
+        const centerX = from.x + l.x + f.card.w / 2;
         const to = pageIndexAt(board, centerX);
         if (to !== f.index) {
           const toOff = pageOffset(board, to);
@@ -264,6 +330,7 @@ export default function Canvas(p: Props) {
         })}
       </div>
       {box && <div className="marquee" style={{ left: box.x, top: box.y, width: box.w, height: box.h }} />}
+      {guides && <GuideLayer {...guides} board={board} vp={vp} />}
     </div>
   );
 }

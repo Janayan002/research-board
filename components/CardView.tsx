@@ -33,12 +33,9 @@ export default function CardView(p: Props) {
   const y = live?.y ?? card.y;
   const w = live?.w ?? card.w;
 
-  const scale = card.scale ?? 1;
   const style: React.CSSProperties = {
     left: x, top: y, width: w,
     ...(card.kind === "text" ? { fontFamily: fontFamily(card.font), fontSize: card.size, color: card.color, fontWeight: card.bold ? 700 : 400 } : {}),
-    transform: scale !== 1 ? `scale(${scale})` : undefined,
-    transformOrigin: "0 0",
   };
 
   return (

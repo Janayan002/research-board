@@ -26,6 +26,7 @@
   --select: var(--rhodonite);       /* selection, active tool, links */
   --select-soft: rgba(48, 44, 77, 0.12);
   --coral: #b3261e;        /* destructive / errors */
+  --guide: #e5355f;        /* alignment guides while dragging */
   --note-ink: #000000;
 
   /* shape: square */
@@ -311,7 +312,9 @@ select.input { cursor: pointer; }
 .bold-btn { font-weight: 700; }
 .swatch.on { outline: 2px solid var(--paper); outline-offset: 2px; }
 .size-row { display: flex; gap: 6px; align-items: center; }
-.size-row .val { width: 44px; text-align: center; font-size: 12px; color: var(--paper-2); }
+.size-row .val { width: 64px; text-align: center; font-size: 12px; color: var(--paper-2); }
+.size-row input.val { padding: 4px 2px; -moz-appearance: textfield; }
+.size-row input.val::-webkit-inner-spin-button { -webkit-appearance: none; }
 
 /* bottom dock: tools */
 .dock {
@@ -706,6 +709,15 @@ body { background: var(--ink); }
 .print-sources h1 { font-size: 1.8em; margin: 0 0 1em; }
 .print-sources p { margin: 0 0 0.8em; padding-left: 2em; text-indent: -2em; overflow-wrap: anywhere; }
 .marquee { position: absolute; border: 1px solid var(--select); background: color-mix(in srgb, var(--select) 10%, transparent); pointer-events: none; z-index: 5; }
+
+/* alignment guides and gap labels while dragging (screen space, drawn over the canvas) */
+.guides { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 6; overflow: visible; }
+.guides line { stroke: var(--guide); stroke-width: 1; shape-rendering: crispEdges; }
+.guides .gap-label rect { fill: var(--guide); }
+.guides .gap-label text { fill: #fff; font: 600 10.5px/1 var(--font-ui); text-anchor: middle; dominant-baseline: central; }
+.arrange-row { display: flex; gap: 1px; align-items: center; margin: 0 0 10px; }
+.arrange-row .sep { width: 1px; height: 16px; background: var(--line); margin: 0 3px; }
+.arrange-row .icon-btn { width: 25px; height: 25px; flex-shrink: 0; }
 .pv-hint { display: flex; align-items: center; gap: 7px; flex-shrink: 0; width: 100%; padding: 8px 14px; border: 0; border-bottom: 1px solid var(--line); background: var(--tray-2); color: var(--paper-2); font: inherit; font-size: 12.5px; text-align: left; cursor: pointer; }
 .pv-hint:hover { color: var(--paper); }
 .pv-hint b { color: var(--paper); font-weight: 600; }

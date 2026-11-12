@@ -14,7 +14,7 @@
 import { create } from "zustand";
 import type { User } from "@supabase/supabase-js";
 import { hasAccounts, supabase } from "./supabase/client";
-import { useBoards } from "./store";
+import { bakeScale, useBoards } from "./store";
 import type { Board, Folder, ImageCard } from "./types";
 
 export type SyncStatus = "off" | "loading" | "saved" | "saving" | "error";
@@ -90,7 +90,7 @@ async function load(user: User) {
     return;
   }
   const boards: Record<string, Board> = {};
-  for (const row of b.data) boards[row.id] = row.data as Board;
+  for (const row of b.data) boards[row.id] = bakeScale(row.data as Board); // boards saved by older versions
   const folders: Record<string, Folder> = {};
   for (const row of f.data) folders[row.id] = { id: row.id, name: row.name, createdAt: Date.parse(row.created_at) };
   synced = { boards: { ...boards }, folders: { ...folders } };

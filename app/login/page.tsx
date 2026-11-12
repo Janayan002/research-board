@@ -1,12 +1,14 @@
 "use client";
 
-// Sign in: Google, a magic link by email, or email and password. Creating an account works the same way.
+// Sign in with Google, or email and password. Creating an account works the same way and needs no email
+// confirmation (turned off in Supabase), because the project has no email sender yet. Email links and
+// password resets can come back once custom SMTP is set up.
 
 import { Suspense, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { hasAccounts, supabase, SUPABASE_KEY, SUPABASE_URL } from "@/lib/supabase/client";
 
-type Mode = "password" | "magic" | "signup" | "reset";
+type Mode = "password" | "signup";
 
 export default function LoginPage() {
   return <Suspense><Login /></Suspense>;
@@ -60,12 +62,14 @@ function Login() {
     const sb = supabase()!;
     const em = email.trim();
     if (mode === "password") return run(() => sb.auth.signInWithPassword({ email: em, password }), () => { location.href = safeNext; });
-    if (mode === "signup") return run(() => sb.auth.signUp({ email: em, password, options: { emailRedirectTo: callback() } }), () => setSent(`We sent a confirmation link to ${em}. Open it to finish creating your account.`));
-    if (mode === "magic") return run(() => sb.auth.signInWithOtp({ email: em, options: { emailRedirectTo: callback() } }), () => setSent(`We sent a sign-in link to ${em}. Open it on this device to continue.`));
-    return run(() => sb.auth.resetPasswordForEmail(em, { redirectTo: callback("/account/password") }), () => setSent(`If ${em} has an account, a link to set a new password is on its way.`));
+    // signUp hands back a session straight away when email confirmation is off; otherwise a link was sent
+    let signedIn = false;
+    return run(async () => {
+      const { data, error } = await sb.auth.signUp({ email: em, password, options: { emailRedirectTo: callback() } });
+      signedIn = Boolean(data.session);
+      return { error };
+    }, () => { if (signedIn) location.href = safeNext; else setSent(`We sent a confirmation link to ${em}. Open it to finish creating your account.`); });
   };
-
-  const needsPassword = mode === "password" || mode === "signup";
 
   return (
     <main className="login">
@@ -74,7 +78,6 @@ function Login() {
 
         <nav className="pipe-nav sm login-modes" aria-label="Sign-in method">
           <button type="button" className={mode === "password" ? "on" : ""} onClick={() => pick("password")}>Sign in</button>
-          <button type="button" className={mode === "magic" ? "on" : ""} onClick={() => pick("magic")}>Email link</button>
           <button type="button" className={mode === "signup" ? "on" : ""} onClick={() => pick("signup")}>Sign up</button>
         </nav>
 
@@ -95,22 +98,16 @@ function Login() {
               <span className="label">Email</span>
               <input className="input" type="email" autoComplete="email" autoFocus required value={email} onChange={(e) => setEmail(e.target.value)} />
             </label>
-            {needsPassword && (
-              <label className="field">
-                <span className="label">Password</span>
-                <input className="input" type="password" required minLength={mode === "signup" ? 8 : undefined}
-                  autoComplete={mode === "signup" ? "new-password" : "current-password"} value={password} onChange={(e) => setPassword(e.target.value)} />
-                {mode === "signup" && <span className="muted" style={{ fontSize: 12 }}>At least 8 characters.</span>}
-              </label>
-            )}
+            <label className="field">
+              <span className="label">Password</span>
+              <input className="input" type="password" required minLength={mode === "signup" ? 8 : undefined}
+                autoComplete={mode === "signup" ? "new-password" : "current-password"} value={password} onChange={(e) => setPassword(e.target.value)} />
+              {mode === "signup" && <span className="muted" style={{ fontSize: 12 }}>At least 8 characters.</span>}
+            </label>
             {error && <div className="error-banner" role="alert">{error}</div>}
-            <button className="btn primary" type="submit" disabled={busy || !email || (needsPassword && !password)}>
-              {busy ? "One moment…" : mode === "password" ? "Sign in" : mode === "signup" ? "Create account" : mode === "magic" ? "Send sign-in link" : "Send reset link"}
+            <button className="btn primary" type="submit" disabled={busy || !email || !password}>
+              {busy ? "One moment…" : mode === "password" ? "Sign in" : "Create account"}
             </button>
-            {mode === "password" && (
-              <button type="button" className="crumb-link login-forgot" onClick={() => pick("reset")}>Forgot your password?</button>
-            )}
-            {mode === "reset" && <p className="muted" style={{ margin: 0, fontSize: 12.5 }}>Enter the email you signed up with and we'll send a link to set a new password.</p>}
           </>
         )}
         <p className="muted login-skip">
@@ -126,6 +123,7 @@ const friendly = (m: string) => {
   if (l.includes("invalid login credentials")) return "That email and password don't match.";
   if (l.includes("email not confirmed")) return "Confirm your email first: open the link we sent you, then sign in.";
   if (l.includes("rate limit")) return "Too many tries. Wait a minute and try again.";
+  if (l.includes("not authorized")) return "Email can't be sent to that address yet. Try a different sign-in method.";
   if (l.includes("already registered")) return "There's already an account for that email. Sign in instead.";
   if (l.includes("expired") || (l.includes("invalid") && l.includes("link"))) return "That link has expired or was already used. Request a new one.";
   if (l.includes("code verifier")) return "That link was opened in a different browser from the one that asked for it. Request a new link here and open it in this browser.";
